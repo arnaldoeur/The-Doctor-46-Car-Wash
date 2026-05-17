@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://carwash46.com/sitemap.xml

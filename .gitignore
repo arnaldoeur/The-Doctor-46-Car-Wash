@@ -1,0 +1,13 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+*.zip
+.env*
+!.env.example
+.claude/
+.openclaude/
+public/api/config.local.php
+dist/api/config.local.php
