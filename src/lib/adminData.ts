@@ -201,8 +201,9 @@ async function loadProfilesMap() {
 
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  const today = new Date();
- const fromDate = format(subDays(today, 6), 'yyyy-MM-dd');
  const todayIsoDate = format(today, 'yyyy-MM-dd');
+ const todayUtcDate = new Date().toISOString().slice(0, 10);
+ const isMatchToday = (dateStr: string) => dateStr === todayIsoDate || dateStr === todayUtcDate;
 
  const [appointments, profiles, documents, inventorySnapshot] = await Promise.all([
  apiRequest<AppointmentRow[]>('admin.appointments.list'),
@@ -216,13 +217,13 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
 
  const completedToday = appointments.filter(
  (appointment) =>
- appointment.appointment_date === todayIsoDate && appointment.status === 'completed'
+ isMatchToday(appointment.appointment_date) && appointment.status === 'completed'
  );
 
  const todayRevenueFromDocs = documents
  .filter(
  (document) =>
- document.issue_date === todayIsoDate &&
+ isMatchToday(document.issue_date) &&
  (document.kind === 'invoice' || document.kind === 'receipt')
  )
  .reduce((total, document) => total + parseMoneyText(document.total), 0);
@@ -239,12 +240,15 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  const weeklyData = Array.from({ length: 7 }, (_, index) => {
  const day = subDays(today, 6 - index);
  const isoDay = format(day, 'yyyy-MM-dd');
- const dailyAppointments = appointments.filter((appointment) => appointment.appointment_date === isoDay);
+ const utcDay = new Date(day.getTime() - day.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+ const isMatchDay = (dateStr: string) => dateStr === isoDay || dateStr === utcDay;
+
+ const dailyAppointments = appointments.filter((appointment) => isMatchDay(appointment.appointment_date));
  const dailyCompleted = dailyAppointments.filter((appointment) => appointment.status === 'completed');
  const dailyRevenueFromDocs = documents
  .filter(
  (document) =>
- document.issue_date === isoDay &&
+ isMatchDay(document.issue_date) &&
  (document.kind === 'invoice' || document.kind === 'receipt')
  )
  .reduce((total, document) => total + parseMoneyText(document.total), 0);
@@ -253,10 +257,13 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  0
  );
 
+ const dailyRevenue = dailyRevenueFromDocs > 0 ? dailyRevenueFromDocs : dailyRevenueFromAppointments;
+ const dailyVehicles = dailyCompleted.length;
+
  return {
- name: format(day, 'EE', { locale: ptBR }),
- revenue: dailyRevenueFromDocs > 0 ? dailyRevenueFromDocs : dailyRevenueFromAppointments,
- customers: dailyAppointments.length,
+ name: format(day, 'EEE', { locale: ptBR }).toUpperCase(),
+ revenue: dailyRevenue,
+ customers: dailyVehicles,
  };
  });
 
