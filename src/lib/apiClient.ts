@@ -384,6 +384,48 @@ const defaultMockStaff = [
     last_login_at: new Date(Date.now() - 86400000 * 1).toISOString(),
     created_at: new Date(Date.now() - 86400000 * 20).toISOString(),
     updated_at: new Date().toISOString()
+  },
+  {
+    id: 'USR-CUST-001',
+    full_name: 'Carlos Santos',
+    email: 'carlos.santos@gmail.com',
+    phone: '+258 84 123 4567',
+    account_type: 'customer',
+    role: 'customer',
+    job_title: 'Cliente VIP',
+    status: 'active',
+    avatar_url: null,
+    last_login_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'USR-CUST-002',
+    full_name: 'Mariana Couto',
+    email: 'mariana@couto.co.mz',
+    phone: '+258 82 987 6543',
+    account_type: 'customer',
+    role: 'customer',
+    job_title: 'Cliente Frequente',
+    status: 'active',
+    avatar_url: null,
+    last_login_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  {
+    id: 'USR-CUST-003',
+    full_name: 'Fernando Macamo',
+    email: 'fmacamo@gmail.com',
+    phone: '+258 87 654 3210',
+    account_type: 'customer',
+    role: 'customer',
+    job_title: 'Cliente Normal',
+    status: 'active',
+    avatar_url: null,
+    last_login_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
   }
 ];
 
@@ -706,7 +748,15 @@ export async function apiRequest<T>(action: string, body?: unknown): Promise<T> 
     
     // --- 1. DOCUMENTS ---
     if (action === 'admin.documents.list') {
-      return getLocalData('doctor46_mock_documents', defaultMockDocuments) as unknown as T;
+      const documents = getLocalData('doctor46_mock_documents', defaultMockDocuments);
+      const todayIso = new Date().toISOString().slice(0, 10);
+      if (!documents.some(d => d.issue_date === todayIso)) {
+        documents.forEach((d, i) => {
+          if (i < 2) d.issue_date = todayIso;
+        });
+        saveLocalData('doctor46_mock_documents', documents);
+      }
+      return documents as unknown as T;
     }
     if (action === 'admin.documents.create') {
       const docs = getLocalData('doctor46_mock_documents', defaultMockDocuments);
@@ -1029,7 +1079,15 @@ export async function apiRequest<T>(action: string, body?: unknown): Promise<T> 
 
     // --- 4. QUEUE / APPOINTMENTS ---
     if (action === 'admin.appointments.list' || action === 'customer.appointments.list') {
-      return getLocalData('doctor46_mock_appointments', defaultMockAppointments) as unknown as T;
+      const appointments = getLocalData('doctor46_mock_appointments', defaultMockAppointments);
+      const todayIso = new Date().toISOString().slice(0, 10);
+      if (!appointments.some(a => a.appointment_date === todayIso)) {
+        appointments.forEach((a, i) => {
+          if (i < 3) a.appointment_date = todayIso;
+        });
+        saveLocalData('doctor46_mock_appointments', appointments);
+      }
+      return appointments as unknown as T;
     }
     if (action === 'admin.appointment.status') {
       const appointments = getLocalData('doctor46_mock_appointments', defaultMockAppointments);
@@ -1107,6 +1165,12 @@ export async function apiRequest<T>(action: string, body?: unknown): Promise<T> 
     // --- 5. STAFF & PROFILES ---
     if (action === 'admin.profiles.list') {
       const staff = getLocalData('doctor46_mock_staff', defaultMockStaff);
+      const hasCustomers = staff.some(s => s.account_type === 'customer');
+      if (!hasCustomers) {
+        const customers = defaultMockStaff.filter(s => s.account_type === 'customer');
+        staff.push(...customers);
+        saveLocalData('doctor46_mock_staff', staff);
+      }
       return staff as unknown as T;
     }
     if (action === 'admin.staff.list') {

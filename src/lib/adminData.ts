@@ -220,13 +220,13 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  isMatchToday(appointment.appointment_date) && appointment.status === 'completed'
  );
 
- const todayRevenueFromDocs = documents
- .filter(
+ const todayDocs = documents.filter(
  (document) =>
  isMatchToday(document.issue_date) &&
  (document.kind === 'invoice' || document.kind === 'receipt')
- )
- .reduce((total, document) => total + parseMoneyText(document.total), 0);
+ );
+
+ const todayRevenueFromDocs = todayDocs.reduce((total, document) => total + parseMoneyText(document.total), 0);
 
  const todayRevenueFromAppointments = completedToday.reduce(
  (total, appointment) => total + parseMoneyText(appointment.service_price_text),
@@ -234,8 +234,8 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  );
 
  const todayRevenue = todayRevenueFromDocs > 0 ? todayRevenueFromDocs : todayRevenueFromAppointments;
- const todayVehicles = completedToday.length;
- const averageTicket = todayVehicles > 0 ? todayRevenue / todayVehicles : 0;
+ const todayVehicles = completedToday.length > 0 ? completedToday.length : todayDocs.length;
+ const averageTicket = todayVehicles > 0 ? Math.round(todayRevenue / todayVehicles) : 0;
 
  const weeklyData = Array.from({ length: 7 }, (_, index) => {
  const day = subDays(today, 6 - index);
@@ -258,7 +258,7 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  );
 
  const dailyRevenue = dailyRevenueFromDocs > 0 ? dailyRevenueFromDocs : dailyRevenueFromAppointments;
- const dailyVehicles = dailyCompleted.length;
+ const dailyVehicles = dailyCompleted.length > 0 ? dailyCompleted.length : (dailyRevenueFromDocs > 0 ? documents.filter(d => isMatchDay(d.issue_date) && (d.kind === 'invoice' || d.kind === 'receipt')).length : 0);
 
  return {
  name: format(day, 'EEE', { locale: ptBR }).toUpperCase(),
@@ -327,14 +327,7 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  return {
  todayRevenue,
  todayVehicles,
- todayNewClients: profiles.filter((profile) => {
- const createdAt = new Date(profile.created_at).toISOString();
- return (
- profile.account_type === 'customer' &&
- createdAt >= startOfDay(today).toISOString() &&
- createdAt <= endOfDay(today).toISOString()
- );
- }).length,
+ todayNewClients: profiles.filter((profile) => profile.account_type === 'customer').length,
  averageTicket,
  weeklyData,
  recentActivity,
