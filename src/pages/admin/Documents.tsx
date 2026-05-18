@@ -16,11 +16,12 @@ import {
   Trash2,
   Sparkles,
   Filter,
+  Eye,
 } from 'lucide-react';
 import companyProfile from '../../lib/companyProfile';
 import { fetchBusinessDocuments, fetchCatalogServices, type BusinessDocumentRow } from '../../lib/adminData';
 import { type DocumentKind, type BusinessDocument } from '../../lib/documentCenter';
-import { generateBusinessDocumentPdf } from '../../lib/pdfMachine';
+import { generateBusinessDocumentPdf, getBusinessDocumentPdfUrl } from '../../lib/pdfMachine';
 import { useLanguage } from '../../providers/LanguageProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '../../lib/utils';
@@ -98,6 +99,11 @@ export default function Documents() {
   // Downloading indicator state for individual recent files
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
+  // Document preview viewer states
+  const [selectedPreviewDoc, setSelectedPreviewDoc] = useState<BusinessDocumentRow | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [loadingPreview, setLoadingPreview] = useState(false);
+
   useEffect(() => {
     let active = true;
 
@@ -130,6 +136,20 @@ export default function Documents() {
       active = false;
     };
   }, [t]);
+
+  const handleOpenPreview = async (document: BusinessDocumentRow) => {
+    setSelectedPreviewDoc(document);
+    setLoadingPreview(true);
+    try {
+      const url = await getBusinessDocumentPdfUrl(toPdfDocument(document));
+      setPreviewUrl(url);
+    } catch (err) {
+      console.error('Failed to generate preview URL', err);
+      setErrorMessage('Erro ao gerar a pré-visualização do documento.');
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
 
   const handleOpenCreator = (kind: DocumentKind) => {
     setActiveTemplate(kind);
@@ -530,7 +550,8 @@ export default function Documents() {
                 return (
                   <div
                     key={document.id}
-                    className="group flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-darker p-4 hover:border-primary/40 hover:bg-white/[0.03] transition-all duration-300 shadow-md"
+                    onClick={() => void handleOpenPreview(document)}
+                    className="group flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-darker p-4 hover:border-primary/40 hover:bg-white/[0.03] transition-all duration-300 shadow-md cursor-pointer"
                   >
                     <div className="flex min-w-0 items-start gap-3.5">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary border border-primary/20 shadow-inner group-hover:bg-primary group-hover:text-white transition-all">
@@ -553,28 +574,38 @@ export default function Documents() {
                         </div>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      disabled={isDownloading}
-                      onClick={() => {
-                        setDownloadingId(document.id);
-                        generateBusinessDocumentPdf(toPdfDocument(document))
-                          .finally(() => setDownloadingId(null));
-                      }}
-                      className={cn(
-                        "shrink-0 flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300 shadow-md",
-                        isDownloading
-                          ? "bg-primary text-white scale-95"
-                          : "bg-white/5 text-gray-300 hover:bg-primary hover:text-white hover:shadow-[0_0_20px_rgba(0,102,255,0.4)] active:scale-95"
-                      )}
-                      title={t('admin.documents.download_title', 'Baixar Documento PDF Oficial')}
-                    >
-                      {isDownloading ? (
-                        <Loader2 className="h-5 w-5 animate-spin text-white" />
-                      ) : (
-                        <Download className="h-5 w-5" />
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => void handleOpenPreview(document)}
+                        className="shrink-0 flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 text-gray-300 hover:bg-blue-600 hover:text-white transition-all duration-300 shadow-md active:scale-95"
+                        title={t('admin.documents.preview_title', 'Visualizar Documento no Leitor PDF')}
+                      >
+                        <Eye className="h-5 w-5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isDownloading}
+                        onClick={() => {
+                          setDownloadingId(document.id);
+                          generateBusinessDocumentPdf(toPdfDocument(document))
+                            .finally(() => setDownloadingId(null));
+                        }}
+                        className={cn(
+                          "shrink-0 flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300 shadow-md",
+                          isDownloading
+                            ? "bg-primary text-white scale-95"
+                            : "bg-white/5 text-gray-300 hover:bg-primary hover:text-white hover:shadow-[0_0_20px_rgba(0,102,255,0.4)] active:scale-95"
+                        )}
+                        title={t('admin.documents.download_title', 'Baixar Documento PDF Oficial')}
+                      >
+                        {isDownloading ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-white" />
+                        ) : (
+                          <Download className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -770,6 +801,99 @@ export default function Documents() {
                   )}
                   <span>{generatingPdf ? 'A gerar e validar PDF...' : 'Gerar Documento e PDF Oficial'}</span>
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Interativo de Visualização de Documento (PDF Preview) */}
+      <AnimatePresence>
+        {selectedPreviewDoc && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md overflow-y-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-white/20 bg-darker p-8 shadow-[0_0_60px_rgba(0,0,0,0.8)] my-8 flex flex-col max-h-[90vh]"
+            >
+              <div className="flex items-center justify-between border-b border-white/10 pb-5 mb-6">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span className="inline-block rounded-full bg-blue-500/20 border border-blue-500/30 px-3 py-1 text-xs font-bold uppercase tracking-widest text-blue-400">
+                      Leitor Oficial PDF
+                    </span>
+                    <span className="rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-400 uppercase tracking-wide">
+                      {selectedPreviewDoc.status}
+                    </span>
+                  </div>
+                  <h3 className="text-2xl font-bold font-display text-white tracking-tight mt-2">
+                    {selectedPreviewDoc.number} • {selectedPreviewDoc.party_name}
+                  </h3>
+                  <p className="text-xs text-gray-400 font-mono mt-1">
+                    {t(`document.kind.${selectedPreviewDoc.kind}`)} emitido em {selectedPreviewDoc.issue_date} • Total: {selectedPreviewDoc.total.toFixed(2)} MT
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedPreviewDoc(null); setPreviewUrl(''); }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-colors shadow-inner"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="flex-1 bg-dark rounded-2xl overflow-hidden border border-white/10 min-h-[500px] flex items-center justify-center relative shadow-inner">
+                {loadingPreview ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                    <span className="text-sm font-semibold text-gray-300">A compilar motor PDF e carregar pré-visualização...</span>
+                  </div>
+                ) : previewUrl ? (
+                  <iframe src={previewUrl} className="w-full h-full min-h-[500px] border-0" title="Visualizador PDF" />
+                ) : (
+                  <div className="text-center text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-2 text-gray-600 animate-pulse" />
+                    <span className="text-sm">Pré-visualização do documento indisponível</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 pt-5 border-t border-white/10 flex items-center justify-between gap-4">
+                <div className="text-xs text-gray-400">
+                  Documento validado e arquivado com sucesso no banco de dados.
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedPreviewDoc(null); setPreviewUrl(''); }}
+                    className="rounded-xl border border-white/15 px-6 py-2.5 text-sm font-bold text-white hover:bg-white/5 transition-colors"
+                  >
+                    Fechar
+                  </button>
+                  {previewUrl && (
+                    <button
+                      type="button"
+                      onClick={() => window.open(previewUrl, '_blank')}
+                      className="rounded-xl bg-white/10 px-5 py-2.5 text-sm font-bold text-white hover:bg-white/20 transition-colors flex items-center gap-2"
+                    >
+                      <span>Abrir Nova Aba</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void generateBusinessDocumentPdf(toPdfDocument(selectedPreviewDoc))}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-600 px-6 py-2.5 text-sm font-bold text-white hover:shadow-[0_0_25px_rgba(0,102,255,0.5)] transition-all font-display shadow-lg"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span>Baixar PDF Oficial</span>
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>

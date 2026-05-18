@@ -379,6 +379,10 @@ export async function fetchStaffProfiles() {
  return apiRequest<ProfileRow[]>('admin.staff.list');
 }
 
+export async function deleteStaffProfile(id: string) {
+ return apiRequest<{ deleted: boolean }>('admin.staff.delete', { id });
+}
+
 export async function fetchAgendaAppointments() {
  const [appointments, profilesMap] = await Promise.all([
  apiRequest<AppointmentRow[]>('admin.appointments.list'),
@@ -398,6 +402,17 @@ export async function updateAppointmentStatus(
  status: AppointmentRow['status']
 ) {
  return apiRequest<AppointmentRow>('admin.appointment.status', { id, status });
+}
+
+export async function createQueueAppointment(payload: {
+ contact_name: string;
+ vehicle_plate: string;
+ vehicle_make: string;
+ vehicle_model: string;
+ service_name: string;
+ price_text: string;
+}) {
+ return apiRequest<AppointmentRow>('admin.appointment.create', payload);
 }
 
 export async function fetchFinanceSnapshot() {

@@ -8,9 +8,12 @@ import {
   TrendingDown,
   TrendingUp,
   X,
+  ExternalLink,
 } from 'lucide-react';
 import { fetchFinanceSnapshot } from '../../lib/adminData';
 import { useLanguage } from '../../providers/LanguageProvider';
+import { getBusinessDocumentPdfUrl } from '../../lib/pdfMachine';
+import type { BusinessDocument } from '../../lib/documentCenter';
 
 type FinanceSnapshot = Awaited<ReturnType<typeof fetchFinanceSnapshot>>;
 type FinanceRow = FinanceSnapshot['rows'][number];
@@ -21,6 +24,67 @@ export default function Finance() {
   const [loading, setLoading] = useState(true);
   const [selectedTransaction, setSelectedTransaction] = useState<FinanceRow | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleExportCsv = () => {
+    if (!snapshot || snapshot.rows.length === 0) return;
+    const header = ['ID', 'Descrição', 'Entidade', 'Data', 'Tipo', 'Valor (MT)'];
+    const rows = snapshot.rows.map(r => [
+      `"${r.id}"`,
+      `"${r.description}"`,
+      `"${r.party}"`,
+      `"${r.date}"`,
+      `"${r.type}"`,
+      r.amount
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [header.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `relatorio_financeiro_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleOpenDocPreview = async () => {
+    if (!selectedTransaction || !snapshot) return;
+    try {
+      setGeneratingPdf(true);
+      const doc: BusinessDocument = {
+        id: selectedTransaction.id,
+        number: `FIN-${selectedTransaction.id}`,
+        kind: selectedTransaction.type === 'income' ? 'receipt' : 'invoice',
+        status: 'Paid',
+        source: 'manual',
+        title: selectedTransaction.description,
+        issueDate: selectedTransaction.date,
+        vatEnabled: true,
+        vatRate: 16,
+        party: {
+          name: selectedTransaction.party || 'Entidade Financeira',
+        },
+        items: [
+          {
+            id: 'item-1',
+            description: selectedTransaction.description,
+            quantity: 1,
+            unitPrice: selectedTransaction.amount,
+          },
+        ],
+        notes: 'Transação financeira oficial registrada no sistema The Doctor 46.',
+        createdAt: new Date().toISOString(),
+      };
+      const url = await getBusinessDocumentPdfUrl(doc);
+      setPreviewUrl(url);
+    } catch (err) {
+      console.error('Failed to generate doc preview', err);
+      setErrorMessage('Erro ao gerar visualização do documento.');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -61,7 +125,11 @@ export default function Finance() {
             {t('admin.finance.sub')}
           </p>
         </div>
-        <button className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 font-medium text-white transition-colors hover:bg-white/10">
+        <button
+          type="button"
+          onClick={handleExportCsv}
+          className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 font-medium text-white transition-colors hover:bg-white/10 shadow-sm"
+        >
           <Download className="h-5 w-5" />
           {t('admin.finance.export')}
         </button>
@@ -225,16 +293,65 @@ export default function Finance() {
               >
                 {t('admin.finance.modal_close')}
               </button>
-              <button className="flex-1 rounded-xl bg-primary px-4 py-3 font-medium text-white transition-colors hover:bg-primary-hover">
-                <span className="inline-flex items-center gap-2">
+              <button
+                type="button"
+                disabled={generatingPdf}
+                onClick={() => void handleOpenDocPreview()}
+                className="flex-1 rounded-xl bg-primary px-4 py-3 font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {generatingPdf ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
                   <FileText className="h-5 w-5" />
-                  {t('admin.finance.modal_view_doc')}
-                </span>
+                )}
+                <span>{generatingPdf ? 'Gerando...' : t('admin.finance.modal_view_doc')}</span>
               </button>
             </div>
           </div>
         </div>
       ) : null}
+
+      {/* Iframe Preview Modal */}
+      {previewUrl && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div className="relative w-full max-w-4xl h-[85vh] rounded-3xl border border-white/20 bg-darker flex flex-col overflow-hidden shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-6 py-4 bg-dark">
+              <div className="flex items-center gap-3">
+                <FileText className="h-6 w-6 text-primary" />
+                <div>
+                  <h3 className="text-lg font-bold text-white font-display">Comprovativo Oficial de Transação</h3>
+                  <p className="text-xs text-gray-400">Gerado em tempo real com certificação do sistema</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/20 transition-all"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span>Abrir em Nova Aba</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewUrl(null)}
+                  className="rounded-full p-2 text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 w-full h-full bg-white bg-opacity-95 p-2">
+              <iframe
+                src={previewUrl}
+                title="Visualização do Documento Financeiro"
+                className="w-full h-full border-0 rounded-xl"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

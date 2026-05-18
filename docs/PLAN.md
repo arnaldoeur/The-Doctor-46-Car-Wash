@@ -1,62 +1,80 @@
-# Plano de Implementação: Checkout Premium Estilo Stripe no POS
+# Plano de Orquestração: Sistema de Administração Totalmente Funcional & Operacional
 
-Este plano detalha a arquitetura e as etapas necessárias para transformar o sistema de pagamento do POS (`POS.tsx`) em uma experiência altamente funcional, fluida e sofisticada inspirada no Stripe Checkout, mantendo estritamente a identidade visual *minimal dark premium* original sem sobrecarregar a interface.
-
----
-
-## 🎯 Objetivos Principais
-
-1. **Lógica de Pagamento Integral e Sincronizada:** Garantir o funcionamento ponta a ponta dos pagamentos em Dinheiro e Carteiras Móveis (M-Pesa, E-Mola, Mkesh) com prevenção de cliques duplos, feedback visual imersivo e atualização automática do histórico de transações.
-2. **Cálculo em Tempo Real (Dinheiro):** Validação estrita de valores de entrada, exibição dinâmica do troco devido e bloqueio seguro contra pagamentos insuficientes.
-3. **Experiência Push Realista (Carteiras Móveis):** Ciclo de vida completo com estados de validação, processamento animado (spinner/pulse), desativação temporária de inputs, opção de cancelamento/retry e transição limpa para a tela de aprovação.
-4. **Preservação da Estética Minimal Dark:** Nenhuma adição de cards supercoloridos ou elementos ruidosos. O modal de celular permanecerá limpo, focando no input de telefone com prefixo `🇲🇿 +258` e parágrafo explicativo simples abaixo.
+Este documento estabelece a arquitetura interna e o cronograma de execução para transformar todo o painel de administração da plataforma em um sistema 100% funcional, interativo e integrado, garantindo a **preservação absoluta da interface de usuário (UI), layout, cores, espaçamento, tipografia e barra de navegação atuais**.
 
 ---
 
-## 🏗️ Arquitetura e Gestão de Estados (Stripe-Style)
+## 🎯 Objetivos de Orquestração
 
-### 1. Estados do Ciclo de Vida do Pagamento (`PaymentState`)
-O modal adotará um fluxo de estado determinístico para eliminar inconsistências:
-- `idle`: Aguardando interação do usuário.
-- `validating`: Validando dados de entrada (valor em dinheiro ou formato do telefone).
-- `processing`: Comunicação assíncrona em andamento (comunicação com a operadora ou gravação no banco de dados/localStorage).
-- `success`: Transação aprovada com sucesso. Emissão e download do recibo/fatura.
-- `failed` / `timeout`: Falha de saldo ou esgotamento do tempo limite (60s no Push), com ações rápidas para tentar novamente ou trocar de método.
-- `cancelled`: Cancelamento manual acionado pelo operador durante a fase de espera.
+1. **Unificação do Fluxo Operacional (Ponta a Ponta):**
+   ```
+   [ POS Venda ] ──┬──> [ Fila de Espera (Queue) ] ──> (Em Espera -> Em Lavagem -> Concluído)
+                   ├──> [ Central PDF / Faturamento ] ──> Geração de Recibo / Fatura PDF
+                   ├──> [ Estoque / Inventário ] ──> Dedução Automática de Insumos (Químicos/Shampoos)
+                   ├──> [ Finanças (Finance) ] ──> Registro Imediato de Receita (+ Valor)
+                   └──> [ Histórico de Auditoria ] ──> Log detalhado da operação e operador
+   ```
 
-### 2. Sincronização Instantânea do Histórico de Vendas
-- Ao concluir o pagamento com sucesso, a função `createBusinessDocument` invocará a API e/ou o gerenciador de cache local (`apiClient.ts`). O novo documento emitido será imediatamente unificado no estado global da sessão, atualizando a grelha de relatórios e histórico instantaneamente sem necessidade de recarregar a página.
+2. **Persistência Robusta e Offline-Safe (`apiClient.ts`):**
+   Implementar ou refinar todos os interceptores locais para que nenhuma informação (Serviços, Inventário, Membros da Equipe, Fila de Espera ou Configurações) seja perdida após recarregar a página ou navegar entre os módulos.
+
+3. **Interatividade Completa sem Alteração Visual:**
+   Ativar todos os botões, modais de visualização de detalhes (Central PDF, Finanças, Faturamento) e fluxos de estado (loading, sucesso, erro e modais de confirmação) mantendo a exata estética *premium dark*.
 
 ---
 
-## 📋 Detalhamento das Tarefas (Fase de Implementação)
+## 🏗️ Arquitetura de Dados & Sincronização entre Módulos
 
-### [ ] **Tarefa 1: Refatoração da Lógica de Pagamento em Dinheiro (`POS.tsx`)**
-- **Validação e Troco:** Implementar sanitização para aceitar apenas números e ponto decimal. Calcular `change = amountReceived - total`.
-- **Bloqueio de Insuficiência:** Se o valor recebido for menor que o total, desabilitar o botão de confirmação e exibir uma notificação de alerta discreta e elegante em vermelho/âmbar escuro.
-- **Conclusão:** Ao clicar em *"Confirmar Recebimento e Emitir Recibo"*, disparar o estado de `processing` (desabilitando o botão e exibindo ícone de loading). Finalizar criando o documento oficial, limpando o carrinho, fechando o modal e acionando o Toast flutuante de sucesso.
+### 1. Fila de Espera (Queue Management)
+- **Criação Automática:** Toda venda concluída no POS gera automaticamente um tíquete de fila (`Ticket #POS-...`) com status inicial `pending` (Em Espera).
+- **Movimentação Operacional:** Os botões na fila de espera (Iniciar Lavagem, Concluir Lavagem e Remover) atualizarão o status e registrarão o evento no Histórico de Auditoria.
 
-### [ ] **Tarefa 2: Ciclo de Vida do Push Payment (M-PESA / E-MOLA / MKESH)**
-- **Input Minimalista:** Preservar o input escuro com borda sutil e o prefixo com a pequena bandeira (`🇲🇿 +258`).
-- **Validação de Celular Moçambicano:** Formatar em tempo real no padrão `84 XXX XXXX` ou `82 XXX XXXX`.
-- **Botão Customizado:** O botão principal exibirá o texto estritamente formatado *"Pagar com M-PESA"* (ou a carteira selecionada: *"Pagar com E-MOLA"*, *"Pagar com MKESH"*).
-- **Simulação do Push:** Ao clicar, alterar o estado para `processing`. Exibir o spinner de alta qualidade com a mensagem *"Aguardando confirmação no celular do cliente..."*. Bloquear inputs. Iniciar um temporizador de aprovação (ex: 4-5s) e um timeout máximo (60s). Permitir cancelar manualmente através de um link/botão discreto de *"Cancelar e Voltar para Opções"*.
-- **Transição de Sucesso:** Exibir ícone de sucesso animado com Framer Motion, gerar o número de referência e o botão *"Emitir Recibo Oficial"*.
+### 2. POS System & Catálogo de Serviços
+- **Preservação de Serviços:** Os serviços do catálogo gerenciados em `Catalog.tsx` (criação, edição, exclusão) serão persistidos no localStorage (`doctor46_mock_catalog`), impedindo qualquer perda de dados ao recarregar.
+- **Conexão Direta:** Finalizar a venda no POS não apenas gera o PDF, mas adiciona o item ao `doctor46_mock_documents`, abate os insumos do estoque e insere o log de venda nas Finanças.
 
-### [ ] **Tarefa 3: Microinterações e Feedback Visual (Stripe Details)**
-- **Transições Suaves:** Utilizar `<AnimatePresence>` do `framer-motion` para abrir/fechar o modal de pagamento, exibir o aviso de troco ou a mensagem de insuficiência de fundos de maneira perfeitamente fluida.
-- **Notificação de Sucesso Premium:** Um Toast flutuante posicionado no canto inferior direito informará o sucesso da transação com clareza e elegância.
-- **Responsividade:** Garantir que o teclado numérico em dispositivos móveis não sobreponha os elementos vitais de confirmação.
+### 3. PDF Center (Central de Documentos) & Faturamento
+- **Visualizador e Pré-visualização:** Clicar em um documento na lista ou no botão de visualização em `Documents.tsx` ou `Billing.tsx` abrirá o modal de detalhes do documento ou fará o download instantâneo do PDF oficial formatado com o papel timbrado da empresa.
 
-### [ ] **Tarefa 4: Verificação e Testes de Qualidade**
-- Executar `npm run lint` para certificar que a tipagem do TypeScript está 100% correta.
-- Executar e testar todas as transições de pagamento em modo demonstração/dev local para comprovar o funcionamento impecável de todos os fluxos.
+### 4. Finanças (Finance Module)
+- **Cálculo Dinâmico em Tempo Real:** O resumo financeiro (`Receitas`, `Despesas`, `Lucro Líquido` e gráficos) será calculado dinamicamente a partir dos documentos emitidos e vendas concluídas.
+- **Detalhamento:** O modal de transação selecionada exibirá as informações completas e conterá o botão *"Ver Documento Original"* perfeitamente funcional.
+
+### 5. Inventário e Estoque (Inventory)
+- **Abatimento Automático:** Cada venda de serviço de lavagem/detalhe no POS deduzirá automaticamente uma unidade padrão dos produtos de operação (ex: Shampoo, Cera) no estoque.
+- **Alertas e Gestão:** Quantidades baixas (abaixo do estoque mínimo) acionarão badges de alerta amarelo/vermelho instantaneamente. Os botões de adição (`+`/`-`), edição e novo produto serão 100% persistidos.
+
+### 6. Histórico, Equipe e Administração (History, Team, Settings)
+- **Logs de Auditoria Reais:** Cada ação no sistema (venda no POS, movimentação na fila, ajuste de estoque, cadastro de membro) registrará um log detalhado em `doctor46_mock_audit_logs`.
+- **Gestão de Equipe:** Criação de novos administradores/operadores e edição de status (`ativo`, `férias`, `inativo`) perfeitamente guardados.
+- **Configurações Globais:** Dados da empresa (Razão social, NUIT, taxa de IVA) gravados e aplicados globalmente.
+
+---
+
+## 📋 Cronograma de Implementação (Fase de Execução)
+
+### [ ] **Fase 2.1: Estrutura Base de Persistência (`apiClient.ts`)**
+- Implementar chaves de armazenamento no localStorage para:
+  - `doctor46_mock_catalog` (Catálogo de Serviços).
+  - `doctor46_mock_inventory` & `doctor46_mock_movements` (Estoque).
+  - `doctor46_mock_appointments` (Fila de Espera / Agendamentos).
+  - `doctor46_mock_audit_logs` (Histórico de Ações).
+  - `doctor46_mock_staff` (Membros da Equipe).
+  - `doctor46_mock_settings` (Configurações Gerais).
+
+### [ ] **Fase 2.2: Integração e Lógica dos Módulos Internos**
+- **POS & Fila:** Refinar o fechamento de venda no POS para abastecer a Fila de Espera, o Estoque e as Finanças em um único ciclo assíncrono.
+- **Central PDF:** Interligar a emissão manual e o faturamento para que todos os documentos gerados fiquem instantaneamente disponíveis para download e visualização.
+- **Finanças e Histórico:** Conectar as tabelas e modais de detalhes aos dados dinâmicos locais recém-unificados.
+
+### [ ] **Fase 2.3: Auditoria, Verificação e Testes**
+- Executar `npm run lint` para garantir zero erros de tipagem.
+- Validar todos os fluxos sem qualquer modificação na UI existente.
 
 ---
 
 ## ✅ Critérios de Aceitação (Definition of Done)
-1. O fluxo de pagamento em dinheiro calcula o troco e impede transações insuficientes de forma fluida.
-2. O fluxo de carteiras móveis reflete o ciclo de vida real de um Push Payment (idle, processing, success, timeout, cancelled) sem usar cards coloridos ou quebrar o visual minimalista.
-3. O botão de pagamento móvel exibe exatamente o texto obrigatório *"Pagar com M-PESA"* (dinâmico conforme a carteira escolhada).
-4. O histórico de transações e relatórios é atualizado em tempo real na conclusão da venda.
-5. Nenhuma regressão visual ou erro de compilação no linter (`Exit code: 0`).
+1. **Zero Redesign:** A aparência visual, barra lateral, espaçamentos e paleta de cores mantêm-se exatamente idênticas.
+2. **Conexão Ponta a Ponta:** Uma venda realizada no POS reflete imediatamente na Fila de Espera, Estoque, Central PDF, Finanças e Histórico de Ações.
+3. **Persistência Total:** Nenhuma informação inserida ou modificada é perdida após o recarregamento da página ou fechamento do navegador.
+4. **Sem Erros de Compilação:** Linter executado com sucesso absoluto (`Exit code: 0`).

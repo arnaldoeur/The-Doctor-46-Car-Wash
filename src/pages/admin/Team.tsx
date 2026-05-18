@@ -1,11 +1,12 @@
 import React, { useEffect, useState, type ReactNode } from 'react';
-import { Mail, Phone, Shield, UserCog, X, Edit2, Loader2 } from 'lucide-react';
+import { Mail, Phone, Shield, UserCog, X, Edit2, Loader2, Trash2 } from 'lucide-react';
 import {
   createStaffProfile,
   fetchStaffProfiles,
   getProfileDisplayName,
   isSuperAdminProfile,
   saveStaffProfile,
+  deleteStaffProfile,
 } from '../../lib/adminData';
 import type { ProfileRow } from '../../lib/customerPortal';
 import { useAuth } from '../../providers/AuthProvider';
@@ -71,6 +72,25 @@ export default function Team() {
       email: member.email ?? '',
       status: member.status,
     });
+  };
+
+  const handleDeleteMember = async (id: string, name: string) => {
+    if (!window.confirm(`Tem certeza que deseja remover o membro da equipe "${name}"?`)) {
+      return;
+    }
+    try {
+      setSaving(true);
+      setMessage('');
+      setErrorMessage('');
+      await deleteStaffProfile(id);
+      await loadTeam();
+      setMessage(`Membro "${name}" removido com sucesso.`);
+    } catch (err) {
+      console.error('Failed to delete staff member', err);
+      setErrorMessage('Erro ao remover membro da equipe.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async (event: React.FormEvent) => {
@@ -268,13 +288,24 @@ export default function Team() {
               className="group relative rounded-3xl border border-white/10 bg-dark p-6 transition-colors hover:border-primary/30"
             >
               {isViewerSuperAdmin ? (
-                <button
-                  type="button"
-                  onClick={() => openEditor(member)}
-                  className="absolute right-4 top-4 rounded-lg p-2 text-gray-400 opacity-0 transition-colors group-hover:opacity-100 hover:bg-white/10 hover:text-white"
-                >
-                  <Edit2 className="h-5 w-5" />
-                </button>
+                <div className="absolute right-4 top-4 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 z-10">
+                  <button
+                    type="button"
+                    onClick={() => openEditor(member)}
+                    className="rounded-lg p-2 text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                    title={t('admin.team.edit_title')}
+                  >
+                    <Edit2 className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteMember(member.id, member.full_name ?? member.email ?? '')}
+                    className="rounded-lg p-2 text-gray-400 hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                    title={t('admin.team.delete_title', 'Remover Membro')}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                </div>
               ) : null}
 
               <div className="mb-6 flex flex-col items-center text-center">
