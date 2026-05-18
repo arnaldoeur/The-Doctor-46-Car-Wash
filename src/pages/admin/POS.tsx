@@ -691,22 +691,22 @@ export default function POS() {
                               : 'border-white/[0.07] bg-white/[0.02] hover:border-white/15 hover:bg-white/[0.04]'
                           )}
                         >
-                          {/* Logo container — fixed 48×48 outer, 28×28 max inner for visual normalization */}
-                          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white shadow-md overflow-hidden">
+                          {/* Logo — full-bleed, no white bg, no border */}
+                          <div className="relative h-12 w-12 shrink-0 rounded-xl overflow-hidden">
                             <img
                               src={method.logo}
                               alt={method.label}
-                              style={{ width: 28, height: 28, objectFit: 'contain', display: 'block', flexShrink: 0 }}
+                              className="h-full w-full object-cover"
                               onError={(e) => {
                                 const target = e.currentTarget;
                                 target.style.display = 'none';
                                 const parent = target.parentElement;
-                                if (parent) parent.innerHTML = `<span style="font-size:9px;font-weight:800;color:#111;letter-spacing:-0.5px">${method.label}</span>`;
+                                if (parent) {
+                                  parent.style.background = '#1a1a1a';
+                                  parent.innerHTML = `<span style="font-size:9px;font-weight:800;color:#fff;letter-spacing:-0.5px;display:flex;align-items:center;justify-content:center;height:100%">${method.label}</span>`;
+                                }
                               }}
                             />
-                            {isActive && (
-                              <div className="absolute inset-0 rounded-xl ring-2 ring-white/40" />
-                            )}
                           </div>
                           <span className={cn('text-[11px] font-bold leading-none', isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-200')}>{method.label}</span>
                           <span className="text-[9px] uppercase tracking-widest text-gray-600 font-medium">{method.tag}</span>
