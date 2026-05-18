@@ -86,18 +86,24 @@ function SidebarContent({
         ) : null}
       </div>
 
-      {/* User badge */}
-      <div className="border-b border-white/10 px-5 py-3">
-        <div className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 border border-primary/30">
-            <span className="text-xs font-bold text-primary">
-              {displayName.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || 'ST'}
-            </span>
+      {/* User Card */}
+      <div className="border-b border-white/10 px-5 py-4">
+        <div className="relative flex items-center gap-3 rounded-xl bg-white/5 p-3.5 shadow-lg shadow-primary/5 backdrop-blur-sm">
+          <div className="relative">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 border border-primary/30 text-white font-semibold text-lg">
+              {displayName.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || 'SA'}
+            </div>
+            <motion.div
+              className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-darker"
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+            />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-white">{displayName}</div>
-            <div className="text-[10px] uppercase tracking-widest text-gray-500">
-              {t(`role.${profile?.role ?? 'staff'}`, profile?.role ?? 'Staff')}
+            <div className="truncate text-base font-semibold text-white">Super Admin</div>
+            <div className="text-xs uppercase tracking-wider text-gray-400 mt-0.5">
+              Administrador Geral do Sistema
             </div>
           </div>
         </div>
@@ -108,46 +114,56 @@ function SidebarContent({
         {navigation.map((item) => {
           const isActive = location.pathname === item.href;
           return (
-            <Link
-              key={item.key}
-              to={item.href}
-              onClick={isMobile ? onClose : undefined}
-              className={cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
-                isActive
-                  ? 'bg-primary text-white shadow-[0_0_14px_rgba(0,71,255,0.22)]'
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
-              )}
-            >
-              <item.icon className="h-4.5 w-4.5 shrink-0" />
-              <span className="truncate">{t(`admin.nav.${item.key}`)}</span>
-            </Link>
+            <motion.div key={item.key} whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}>
+              <Link
+                to={item.href}
+                onClick={isMobile ? onClose : undefined}
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                  isActive
+                    ? 'bg-primary/20 text-primary shadow-lg shadow-primary/15 border border-primary/30'
+                    : 'text-gray-400 hover:bg-white/5 hover:text-white hover:border border-white/0'
+                )}
+              >
+                <item.icon className="h-5 w-5 shrink-0" />
+                <span className="truncate">{t(`admin.nav.${item.key}`)}</span>
+                {isActive && (
+                  <motion.div
+                    layoutId="activeIndicator"
+                    className="absolute -right-1 top-1/2 h-2 w-2 rounded-full bg-primary"
+                    transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                  />
+                )}
+              </Link>
+            </motion.div>
           );
         })}
       </nav>
 
       {/* Footer actions */}
-      <div className="border-t border-white/10 p-3">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={toggleLanguage}
-            title={language === 'pt' ? t('common.language.toggle.en') : t('common.language.toggle.pt')}
-            aria-label={language === 'pt' ? t('common.language.toggle.en') : t('common.language.toggle.pt')}
-            className="flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-white/10 px-3 text-xs font-semibold text-gray-400 transition-all hover:bg-white/5 hover:text-white"
-          >
-            <Languages className="h-3.5 w-3.5" />
-            {language === 'pt' ? 'EN' : 'PT'}
-          </button>
-          <button
-            type="button"
-            onClick={() => void signOut()}
-            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-gray-400 transition-all hover:bg-white/5 hover:text-white"
-          >
-            <LogOut className="h-4 w-4 shrink-0" />
-            <span className="truncate">{t('admin.logout')}</span>
-          </button>
-        </div>
+      <div className="border-t border-white/10 p-4 space-y-2">
+        <motion.button
+          type="button"
+          onClick={toggleLanguage}
+          title={language === 'pt' ? t('common.language.toggle.en') : t('common.language.toggle.pt')}
+          aria-label={language === 'pt' ? t('common.language.toggle.en') : t('common.language.toggle.pt')}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="flex w-full h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-white/10 px-3 text-xs font-semibold text-gray-400 transition-all hover:bg-white/5 hover:text-primary hover:border-primary/30"
+        >
+          <Languages className="h-4 w-4" />
+          <span>{language === 'pt' ? 'EN' : 'PT'}</span>
+        </motion.button>
+        <motion.button
+          type="button"
+          onClick={() => void signOut()}
+          whileHover={{ scale: 1.02, backgroundColor: 'rgba(255,255,255,0.05)' }}
+          whileTap={{ scale: 0.98 }}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-400 transition-all hover:text-red-400 hover:bg-red-500/5"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          <span className="truncate">{t('admin.logout')}</span>
+        </motion.button>
       </div>
     </div>
   );
@@ -193,7 +209,7 @@ export default function AdminLayout() {
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="hidden md:flex md:w-64 md:shrink-0 md:flex-col bg-dark border-r border-white/10"
+        className="hidden md:flex md:w-64 md:shrink-0 md:flex-col bg-dark/50 backdrop-blur-sm border-r border-white/10 shadow-xl"
       >
         <SidebarContent isMobile={false} />
       </motion.aside>
@@ -220,7 +236,7 @@ export default function AdminLayout() {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ duration: 0.28, ease: [0.32, 0.72, 0, 1] }}
-              className="fixed inset-y-0 left-0 z-50 w-72 bg-dark shadow-2xl md:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-72 bg-dark/95 shadow-2xl md:hidden"
             >
               <SidebarContent isMobile onClose={() => setSidebarOpen(false)} />
             </motion.div>
@@ -235,41 +251,50 @@ export default function AdminLayout() {
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: 'easeOut' }}
-          className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-dark/50 px-4 backdrop-blur-md md:h-20 md:px-8"
+          className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-dark/40 backdrop-blur-md md:h-20 md:px-8 px-4 shadow-sm"
         >
           <div className="flex items-center gap-3">
             {/* Hamburger — mobile only */}
-            <button
+            <motion.button
               type="button"
               onClick={() => setSidebarOpen(true)}
               aria-label={t('common.menu.open')}
-              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-white/10 hover:text-white md:hidden"
+              whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.1)' }}
+              whileTap={{ scale: 0.95 }}
+              className="rounded-lg p-2 text-gray-400 transition-colors md:hidden"
             >
               <Menu className="h-5 w-5" />
-            </button>
-            <h1 className="text-lg font-semibold font-display md:text-xl">
+            </motion.button>
+            <h1 className="text-lg font-semibold font-display md:text-xl text-white">
               {activeNav ? t(`admin.nav.${activeNav.key}`) : t('admin.title.default')}
             </h1>
           </div>
 
           {/* Header right — desktop only (avatar shown in sidebar on all sizes) */}
-          <div className="hidden items-center gap-3 md:flex">
-            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30">
-              <span className="text-primary font-bold text-xs">
+          <motion.div 
+            className="hidden items-center gap-3 md:flex"
+            whileHover={{ scale: 1.02 }}
+          >
+            <motion.div 
+              className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center border border-primary/30 cursor-pointer hover:border-primary/50 hover:bg-primary/30"
+              whileHover={{ boxShadow: '0 0 20px rgba(0, 87, 255, 0.3)' }}
+            >
+              <span className="text-primary font-bold text-sm">
                 {initials}
               </span>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </motion.header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="p-4 md:p-8">
+        <main className="flex-1 overflow-y-auto bg-darker/30">
+          <div className="min-h-full p-4 md:p-8">
             <motion.div
               key={location.pathname}
               initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
+              exit={{ opacity: 0, y: -18 }}
             >
               <Outlet />
             </motion.div>
