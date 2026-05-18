@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   Search,
   Plus,
@@ -152,6 +152,13 @@ export default function POS() {
   const [transactionRef, setTransactionRef] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [completedDoc, setCompletedDoc] = useState<{ id: string; number: string; kind: string; title: string; party_name: string; total: number; issue_date: string; payment_method: PaymentMethod; vat_enabled: boolean; vat_included: boolean; vat_rate: number; items: any[] } | null>(null);
+
+  // New robust Toast & Push timeout states
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const pushTimeoutRef = useRef<number | null>(null);
+  const successTimerRef = useRef<number | null>(null);
+  const [pushTimedOut, setPushTimedOut] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -314,7 +321,11 @@ export default function POS() {
       setCart([]);
       setCustomerName('');
       setIsPaymentModalOpen(false);
-      setMessage(t('admin.pos.success_message', 'Venda finalizada com sucesso! Documento gerado.'));
+      const successText = t('admin.pos.success_message', 'Venda finalizada com sucesso! Documento gerado.');
+      setMessage(successText);
+      setToastMessage(successText);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     } catch (error) {
       console.error('Failed to confirm POS checkout', error);
       setErrorMessage(error instanceof Error ? error.message : t('admin.pos.error_issue'));
@@ -326,17 +337,34 @@ export default function POS() {
   const handleProcessMobileWallet = () => {
     const cleanPhone = phoneNumber.replace(/\s+/g, '');
     if (!/^(84|85|82|83|86|87)\d{7}$/.test(cleanPhone)) {
-      setPhoneError('Número inválido. Introduza um número Moçambicano com 9 dígitos (ex: 841234567 ou 82... ou 86...).');
+      setPhoneError('Número inválido. Introduza um número Moçambicano de 9 dígitos (iniciado por 84, 85, 82, 83, 86 ou 87).');
       return;
     }
     setPhoneError('');
+    setPushTimedOut(false);
     setWalletStep('processing');
 
-    setTimeout(() => {
+    if (successTimerRef.current) window.clearTimeout(successTimerRef.current);
+    if (pushTimeoutRef.current) window.clearTimeout(pushTimeoutRef.current);
+
+    // Simulate approval after 4.5 seconds
+    successTimerRef.current = window.setTimeout(() => {
+      if (pushTimeoutRef.current) window.clearTimeout(pushTimeoutRef.current);
       const ref = `${paymentMethod.toUpperCase()}-${Math.floor(10000000 + Math.random() * 90000000)}`;
       setTransactionRef(ref);
       setWalletStep('success');
-    }, 2000);
+      // Automatically issue receipt and conclude after 2.5s showing the success screen
+      setTimeout(() => {
+        void handleConfirmPayment();
+      }, 2500);
+    }, 4500);
+
+    // Automatic timeout if customer takes too long (60s)
+    pushTimeoutRef.current = window.setTimeout(() => {
+      if (successTimerRef.current) window.clearTimeout(successTimerRef.current);
+      setPushTimedOut(true);
+      setWalletStep('idle');
+    }, 60000);
   };
 
   return (
@@ -435,31 +463,39 @@ export default function POS() {
                 placeholder={t('admin.pos.customer_name_placeholder', 'Nome do cliente (opcional)')}
               />
             </div>
-            <div className="p-1 bg-dark rounded-xl border border-white/10 grid grid-cols-2 gap-1 shadow-inner">
+            <div className="p-1.5 bg-black/40 rounded-2xl border border-white/10 grid grid-cols-2 gap-1.5 shadow-inner">
               <button
                 type="button"
-                onClick={() => setDocumentType('receipt')}
+                onClick={() => {
+                  setDocumentType('receipt');
+                  setToastMessage('Modo configurado: Emissão de Recibo (Pronto Pagamento)');
+                  setShowToast(true);
+                }}
                 className={cn(
-                  'flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition-all duration-300',
+                  'flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition-all duration-300 font-display',
                   documentType === 'receipt'
-                    ? 'bg-primary text-white shadow-[0_0_20px_rgba(59,130,246,0.35)]'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_0_25px_rgba(59,130,246,0.5)] border border-blue-500/50 scale-[1.02]'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 )}
               >
-                <Printer className="h-3.5 w-3.5" />
+                <Printer className={cn("h-4 w-4 transition-transform", documentType === 'receipt' ? "scale-110 text-white" : "text-blue-400")} />
                 {t('admin.pos.receipt', 'Recibo (Venda)')}
               </button>
               <button
                 type="button"
-                onClick={() => setDocumentType('invoice')}
+                onClick={() => {
+                  setDocumentType('invoice');
+                  setToastMessage('Modo configurado: Emissão de Fatura (A Pagar / Crédito)');
+                  setShowToast(true);
+                }}
                 className={cn(
-                  'flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition-all duration-300',
+                  'flex items-center justify-center gap-2 rounded-xl py-3 text-xs font-bold transition-all duration-300 font-display',
                   documentType === 'invoice'
-                    ? 'bg-primary text-white shadow-[0_0_20px_rgba(59,130,246,0.35)]'
+                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_0_25px_rgba(59,130,246,0.5)] border border-blue-500/50 scale-[1.02]'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 )}
               >
-                <FileText className="h-3.5 w-3.5" />
+                <FileText className={cn("h-4 w-4 transition-transform", documentType === 'invoice' ? "scale-110 text-white" : "text-purple-400")} />
                 {t('admin.pos.invoice', 'Fatura (A pagar)')}
               </button>
             </div>
@@ -622,7 +658,7 @@ export default function POS() {
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-500">Método de Pagamento</p>
 
             {/* Primary method tabs */}
-            <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5 gap-0.5 mb-3">
+            <div className="flex rounded-xl border border-white/10 bg-black/40 p-1 gap-1 mb-3 shadow-inner">
               {primaryPaymentMethods.map((method) => {
                 const Icon = method.icon;
                 const isActive =
@@ -638,26 +674,24 @@ export default function POS() {
                       if (method.id === 'mobile_wallet') {
                         if (!['mpesa', 'emola', 'mkesh'].includes(paymentMethod)) {
                           setPaymentMethod('mpesa');
-                          setShowMobileWallets(true);
-                        } else {
-                          setShowMobileWallets(!showMobileWallets);
                         }
+                        setShowMobileWallets(true);
                       } else {
                         setPaymentMethod('cash');
                         setShowMobileWallets(false);
                       }
                     }}
                     className={cn(
-                      'flex flex-1 items-center justify-center gap-2 rounded-md py-2.5 text-xs font-semibold transition-all duration-200',
+                      'flex flex-1 items-center justify-center gap-2 rounded-lg py-3 text-xs font-bold transition-all duration-300 font-display',
                       isActive
-                        ? 'bg-white/10 text-white shadow-sm border border-white/10'
-                        : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(59,130,246,0.4)] border border-blue-500/50 scale-[1.02]'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
                     )}
                   >
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                    <Icon className={cn("h-4 w-4 shrink-0 transition-transform", isActive ? "scale-110 text-white" : "text-blue-400")} />
                     <span>{method.label}</span>
                     {method.id === 'mobile_wallet' && (
-                      <ChevronDown className={cn('h-3 w-3 transition-transform duration-200 text-gray-500', showMobileWallets && isActive ? 'rotate-180' : '')} />
+                      <ChevronDown className={cn('h-3.5 w-3.5 transition-transform duration-300 text-white/80', showMobileWallets && isActive ? 'rotate-180' : '')} />
                     )}
                   </button>
                 );
@@ -728,8 +762,12 @@ export default function POS() {
           {/* Checkout CTA */}
           <motion.button
             type="button"
-            disabled={cart.length === 0}
             onClick={() => {
+              if (cart.length === 0) {
+                setErrorMessage('Carrinho Vazio: Selecione pelo menos um serviço na grelha ao lado para adicionar ao documento.');
+                return;
+              }
+              setErrorMessage('');
               if (paymentMethod === 'mobile_wallet') {
                 setPaymentMethod('mpesa');
               }
@@ -740,19 +778,19 @@ export default function POS() {
             whileHover={{ scale: cart.length === 0 ? 1 : 1.015 }}
             whileTap={{ scale: cart.length === 0 ? 1 : 0.985 }}
             className={cn(
-              'flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3.5 text-sm font-bold transition-all duration-300 font-display tracking-tight',
+              'flex w-full items-center justify-center gap-3 rounded-2xl px-6 py-4 text-base font-bold transition-all duration-300 font-display tracking-tight shadow-xl',
               cart.length === 0
-                ? 'bg-white/[0.04] text-gray-600 cursor-not-allowed border border-white/[0.06]'
-                : 'bg-primary text-white hover:bg-blue-500 hover:shadow-[0_0_24px_rgba(0,102,255,0.4)] active:scale-[0.985]'
+                ? 'bg-gray-800 text-gray-400 border border-white/10 hover:bg-gray-700 hover:text-gray-200 shadow-none'
+                : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-500 hover:to-indigo-500 hover:shadow-[0_0_35px_rgba(59,130,246,0.5)] active:scale-[0.985]'
             )}
           >
             {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <ArrowRight className="h-4 w-4" />
+              <ArrowRight className={cn("h-5 w-5", cart.length === 0 ? "text-gray-500" : "text-white")} />
             )}
             <span>
-              {saving ? 'A processar...' : `Proceder para Pagamento — ${totals.total.toFixed(2)} MT`}
+              {saving ? 'A processar...' : cart.length === 0 ? 'Selecione Serviços para Começar' : `Proceder para Pagamento — ${totals.total.toFixed(2)} MT`}
             </span>
           </motion.button>
         </div>
@@ -789,7 +827,7 @@ export default function POS() {
                   {paymentMethod === 'cash' ? 'Pagamento em Dinheiro' : `Carteira Móvel • ${paymentMethod.toUpperCase()}`}
                 </h3>
                 <p className="text-sm text-gray-400 mt-1">
-                  {paymentMethod === 'cash' ? 'Insira o valor entregue pelo cliente para calcular o troco devido.' : 'Introduza o número de celular do cliente para solicitar autorização de débito via push.'}
+                  {paymentMethod === 'cash' ? 'Insira o valor entregue pelo cliente para calcular o troco devido em tempo real.' : 'Introduza o número de celular do cliente para solicitar autorização de débito via push.'}
                 </p>
               </div>
 
@@ -799,7 +837,7 @@ export default function POS() {
                   <span className="text-xs font-medium text-gray-400">Total a Pagar</span>
                   <div className="text-2xl font-bold font-display text-white">{totals.total.toFixed(2)} MT</div>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/20 text-primary">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/20 text-primary shadow-[0_0_20px_rgba(59,130,246,0.3)]">
                   {paymentMethod === 'cash' ? <Banknote className="h-6 w-6" /> : <Smartphone className="h-6 w-6" />}
                 </div>
               </div>
@@ -814,11 +852,17 @@ export default function POS() {
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">MT</span>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         placeholder="Ex: 3000.00"
                         value={amountReceived}
-                        onChange={(e) => setAmountReceived(e.target.value)}
-                        className="w-full rounded-2xl border border-white/10 bg-dark py-4 pl-14 pr-4 text-xl font-bold text-white transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none"
+                        onChange={(e) => {
+                          const clean = e.target.value.replace(/[^0-9.]/g, '');
+                          const parts = clean.split('.');
+                          if (parts.length > 2) return;
+                          setAmountReceived(clean);
+                        }}
+                        className="w-full rounded-2xl border border-white/10 bg-dark py-4 pl-14 pr-4 text-xl font-bold text-white transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 focus:outline-none shadow-inner"
                         autoFocus
                       />
                     </div>
@@ -827,19 +871,19 @@ export default function POS() {
                   {(() => {
                     const numericReceived = parseFloat(amountReceived) || 0;
                     const change = numericReceived - totals.total;
-                    const isInsufficient = numericReceived > 0 && numericReceived < totals.total;
+                    const isInsufficient = amountReceived.trim() !== '' && numericReceived < totals.total;
 
                     return (
                       <div className="space-y-4">
                         {isInsufficient && (
-                          <div className="flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-medium text-amber-200">
+                          <div className="flex items-center gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-medium text-amber-200 shadow-lg">
                             <AlertCircle className="h-5 w-5 text-amber-400 shrink-0" />
                             <span>Valor recebido é insuficiente (faltam {(totals.total - numericReceived).toFixed(2)} MT)</span>
                           </div>
                         )}
 
                         {numericReceived >= totals.total && (
-                          <div className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/15 p-5 text-emerald-200">
+                          <div className="flex items-center justify-between rounded-2xl border border-emerald-500/30 bg-emerald-500/15 p-5 text-emerald-200 shadow-[0_0_25px_rgba(16,185,129,0.15)] transition-all">
                             <div>
                               <span className="text-xs font-bold uppercase tracking-wider text-emerald-400 block mb-1">Troco a Devolver</span>
                               <span className="text-3xl font-black font-display text-emerald-300">{change.toFixed(2)} MT</span>
@@ -856,7 +900,7 @@ export default function POS() {
                             "flex w-full items-center justify-center gap-3 rounded-2xl py-4 font-bold text-base transition-all duration-300 shadow-xl",
                             numericReceived < totals.total || saving
                               ? "bg-gray-800 text-gray-500 cursor-not-allowed border border-white/5"
-                              : "bg-emerald-500 text-darker hover:bg-emerald-400 hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] font-display"
+                              : "bg-emerald-500 text-darker hover:bg-emerald-400 hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] font-display active:scale-[0.99]"
                           )}
                         >
                           {saving && <Loader2 className="h-5 w-5 animate-spin" />}
@@ -871,26 +915,62 @@ export default function POS() {
                 <div className="space-y-6">
                   {walletStep === 'idle' && (
                     <div className="space-y-6">
+                      {pushTimedOut && (
+                        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-200 text-sm space-y-3 shadow-lg transition-all animate-in fade-in zoom-in-95 duration-300">
+                          <div className="flex items-center gap-2.5 font-bold">
+                            <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
+                            <span>Tempo de espera esgotado (60s sem confirmação)</span>
+                          </div>
+                          <p className="text-xs text-gray-300 leading-relaxed">O cliente não introduziu o PIN de confirmação no celular a tempo.</p>
+                          <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={handleProcessMobileWallet}
+                              className="flex-1 py-2.5 bg-red-500 text-darker font-bold rounded-xl text-xs hover:bg-red-400 transition-all shadow-[0_0_20px_rgba(239,68,68,0.3)] text-center font-display"
+                            >
+                              Tentar Novamente
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPushTimedOut(false);
+                                setPaymentMethod('cash');
+                              }}
+                              className="flex-1 py-2.5 bg-white/10 text-white font-bold rounded-xl text-xs hover:bg-white/20 transition-all border border-white/15 text-center font-display"
+                            >
+                              Trocar para Dinheiro
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
                       <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-2">
                           Número de Celular Moçambique (+258)
                         </label>
                         <div className="relative">
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">+258</span>
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold flex items-center gap-2.5">
+                            <span className="text-base">🇲🇿</span>
+                            <span className="text-base font-bold">+258</span>
+                          </span>
                           <input
                             type="tel"
-                            placeholder="Ex: 841234567"
+                            placeholder="Ex: 84 123 4567"
                             value={phoneNumber}
                             onChange={(e) => {
-                              setPhoneNumber(e.target.value);
+                              const digits = e.target.value.replace(/\D/g, '').slice(0, 9);
+                              let formatted = digits;
+                              if (digits.length > 2) formatted = digits.slice(0, 2) + ' ' + digits.slice(2);
+                              if (digits.length > 5) formatted = digits.slice(0, 2) + ' ' + digits.slice(2, 5) + ' ' + digits.slice(5);
+                              setPhoneNumber(formatted);
                               setPhoneError('');
                             }}
-                            className="w-full rounded-2xl border border-white/10 bg-dark py-4 pl-16 pr-4 text-lg font-bold text-white transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
+                            className="w-full rounded-2xl border border-white/10 bg-dark py-4 pl-24 pr-4 text-lg font-bold font-mono text-white transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none shadow-inner"
                             autoFocus
                           />
                         </div>
                         {phoneError && (
-                          <div className="mt-2 flex items-center gap-2 text-xs text-red-400 font-medium">
+                          <div className="mt-2 flex items-center gap-2 text-xs text-red-400 font-medium animate-in fade-in">
                             <AlertCircle className="h-4 w-4 shrink-0" />
                             <span>{phoneError}</span>
                           </div>
@@ -903,29 +983,40 @@ export default function POS() {
                       <button
                         type="button"
                         onClick={handleProcessMobileWallet}
-                        className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 py-4 font-bold text-white hover:from-blue-500 hover:to-indigo-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] transition-all duration-300 text-base font-display shadow-xl"
+                        className="flex w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 py-4 font-bold text-white hover:from-blue-500 hover:to-indigo-500 hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] transition-all duration-300 text-base font-display shadow-xl active:scale-[0.99]"
                       >
                         <Smartphone className="h-5 w-5" />
-                        <span>Processar Pagamento via Push</span>
+                        <span>Pagar com {paymentMethod.toUpperCase()}</span>
                       </button>
                     </div>
                   )}
 
                   {walletStep === 'processing' && (
-                    <div className="flex flex-col items-center justify-center py-12 text-center">
-                      <div className="relative mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-blue-500/10 border border-blue-500/30">
+                    <div className="flex flex-col items-center justify-center py-10 text-center animate-in fade-in duration-300">
+                      <div className="relative mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-blue-500/10 border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.2)]">
                         <Loader2 className="h-12 w-12 animate-spin text-blue-400" />
                         <Smartphone className="absolute h-6 w-6 text-blue-300 animate-pulse" />
                       </div>
                       <h4 className="text-xl font-bold text-white mb-2 font-display">Aguardando Confirmação no Celular...</h4>
-                      <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
-                        Um prompt foi enviado para o número <span className="text-white font-bold">+258 {phoneNumber}</span>. Peça ao cliente para digitar o PIN.
+                      <p className="text-sm text-gray-400 max-w-xs leading-relaxed mb-6">
+                        Um prompt seguro foi enviado para <span className="text-white font-bold font-mono">+258 {phoneNumber}</span>. Peça ao cliente para digitar o PIN.
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (successTimerRef.current) window.clearTimeout(successTimerRef.current);
+                          if (pushTimeoutRef.current) window.clearTimeout(pushTimeoutRef.current);
+                          setWalletStep('idle');
+                        }}
+                        className="px-5 py-2.5 text-xs font-bold text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all border border-white/10"
+                      >
+                        Cancelar e Voltar para Opções
+                      </button>
                     </div>
                   )}
 
                   {walletStep === 'success' && (
-                    <div className="space-y-6 py-4 text-center">
+                    <div className="space-y-6 py-4 text-center animate-in zoom-in-95 duration-300">
                       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
                         <CheckCircle2 className="h-10 w-10" />
                       </div>
@@ -933,25 +1024,52 @@ export default function POS() {
                         <h4 className="text-2xl font-bold text-white mb-1 font-display">Transação Aprovada!</h4>
                         <p className="text-xs text-gray-400 uppercase tracking-widest font-mono">Ref: {transactionRef}</p>
                       </div>
-                      <div className="rounded-2xl bg-dark p-4 border border-white/5 text-sm text-gray-300 flex items-center justify-between">
+                      <div className="rounded-2xl bg-dark p-4 border border-white/5 text-sm text-gray-300 flex items-center justify-between shadow-inner">
                         <span>Valor Debitado:</span>
-                        <span className="font-bold text-emerald-400">{totals.total.toFixed(2)} MT</span>
+                        <span className="font-bold font-mono text-emerald-400">{totals.total.toFixed(2)} MT</span>
                       </div>
                       <button
                         type="button"
                         disabled={saving}
                         onClick={() => void handleConfirmPayment()}
-                        className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-500 py-4 font-bold text-darker hover:bg-emerald-400 hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition-all duration-300 text-base font-display shadow-xl"
+                        className="flex w-full items-center justify-center gap-3 rounded-2xl bg-emerald-500 py-4 font-bold text-darker hover:bg-emerald-400 hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transition-all duration-300 text-base font-display shadow-xl active:scale-[0.99]"
                       >
                         {saving && <Loader2 className="h-5 w-5 animate-spin" />}
                         <Printer className="h-5 w-5" />
-                        <span>{saving ? "A emitir recibo..." : "Emitir Recibo Oficial"}</span>
+                        <span>{saving ? "A emitir recibo oficial..." : "Emitir Recibo Oficial"}</span>
                       </button>
                     </div>
                   )}
                 </div>
               )}
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Toast flutuante de sucesso */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-8 right-8 z-50 flex items-center gap-4 rounded-2xl bg-emerald-500 border border-emerald-400 p-5 text-darker shadow-[0_10px_50px_rgba(16,185,129,0.6)] font-display"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-dark text-emerald-400 shadow-inner shrink-0">
+              <CheckCircle2 className="h-7 w-7" />
+            </div>
+            <div>
+              <h5 className="font-extrabold text-base tracking-tight">Transação Concluída com Sucesso!</h5>
+              <p className="text-xs text-darker/80 font-bold mt-0.5">{toastMessage || "Recibo emitido e salvo no histórico."}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowToast(false)}
+              className="ml-3 rounded-lg p-1.5 text-darker/70 hover:text-darker hover:bg-black/10 transition-colors shrink-0"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
