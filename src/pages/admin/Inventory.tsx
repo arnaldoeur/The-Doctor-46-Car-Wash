@@ -298,8 +298,8 @@ export default function Inventory() {
  icon={Package}
  label={t('admin.inventory.stat_operation')}
  value={`${operationStockCount} ${t('admin.pos.items', 'itens')}`}
- iconClassName="text-purple-400"
- panelClassName="bg-purple-500/10"
+ iconClassName="text-amber-400"
+ panelClassName="bg-amber-500/10"
  />
  <StatCard
  icon={DollarSign}
@@ -432,7 +432,7 @@ export default function Inventory() {
  'inline-flex rounded-full border px-2.5 py-1 text-xs font-medium',
  item.stock_type === 'sale'
  ? 'border-blue-500/20 bg-blue-500/10 text-blue-400'
- : 'border-purple-500/20 bg-purple-500/10 text-purple-400'
+ : 'border-amber-500/20 bg-amber-500/10 text-amber-400'
  )}
  >
  {item.stock_type === 'sale' ? t('admin.inventory.tab_sale') : t('admin.inventory.tab_operation')}

@@ -110,7 +110,7 @@ function SidebarContent({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 custom-scrollbar">
         {navigation.map((item) => {
           const isActive = location.pathname === item.href;
           return (
@@ -119,19 +119,21 @@ function SidebarContent({
                 to={item.href}
                 onClick={isMobile ? onClose : undefined}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                  'group relative flex items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-300',
                   isActive
-                    ? 'bg-primary/20 text-primary shadow-lg shadow-primary/15 border border-primary/30'
-                    : 'text-gray-400 hover:bg-white/5 hover:text-white hover:border border-white/0'
+                    ? 'bg-gradient-to-r from-primary/25 via-primary/15 to-transparent text-white shadow-[0_0_20px_rgba(0,102,255,0.25)] border-l-4 border-primary font-semibold'
+                    : 'text-gray-400 hover:bg-white/[0.04] hover:text-white border-l-4 border-transparent'
                 )}
               >
-                <item.icon className="h-5 w-5 shrink-0" />
-                <span className="truncate">{t(`admin.nav.${item.key}`)}</span>
+                <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg transition-colors duration-300 shadow-sm", isActive ? "bg-primary/20 text-primary shadow-[0_0_15px_rgba(0,102,255,0.4)]" : "bg-white/5 text-gray-400 group-hover:bg-white/10 group-hover:text-white")}>
+                  <item.icon className="h-4 w-4 shrink-0 transition-transform duration-300 group-hover:scale-110" />
+                </div>
+                <span className="truncate tracking-wide">{t(`admin.nav.${item.key}`)}</span>
                 {isActive && (
                   <motion.div
                     layoutId="activeIndicator"
-                    className="absolute -right-1 top-1/2 h-2 w-2 rounded-full bg-primary"
-                    transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-primary shadow-[0_0_8px_#0066ff]"
+                    transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                   />
                 )}
               </Link>

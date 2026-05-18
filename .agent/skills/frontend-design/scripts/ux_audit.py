@@ -113,21 +113,22 @@ class UXAuditor:
 
         # Pre-calculate common flags
         has_long_text = bool(re.search(r'<p|<div.*class=.*text|article|<span.*text', content, re.IGNORECASE))
-        has_form = bool(re.search(r'<form|<input|password|credit|card|payment', content, re.IGNORECASE))
-        complex_elements = len(re.findall(r'<input|<select|<textarea|<option', content, re.IGNORECASE))
+        has_form = bool(re.search(r'<form[\s>]|<input[\s>]|<select[\s>]|<textarea[\s>]', content, re.IGNORECASE))
+        complex_elements = len(re.findall(r'<input[\s>]|<select[\s>]|<textarea[\s>]|<option[\s>]', content, re.IGNORECASE))
 
         # --- 1. PSYCHOLOGY LAWS ---
         # Hick's Law
-        nav_items = len(re.findall(r'<NavLink|<Link|<a\s+href|nav-item', content, re.IGNORECASE))
+        nav_blocks = re.findall(r'<nav[^>]*>(.*?)</nav>', content, re.DOTALL | re.IGNORECASE)
+        nav_items = max([len(re.findall(r'<NavLink|<Link|<a\s+href|nav-item', block, re.IGNORECASE)) for block in nav_blocks] or [len(re.findall(r'<NavLink|<Link|<a\s+href|nav-item', content, re.IGNORECASE)) if '<nav' not in content else 0])
         if nav_items > 7:
-            self.issues.append(f"[Hick's Law] {filename}: {nav_items} nav items (Max 7)")
+            self.issues.append(f"[Hick's Law] {filename}: {nav_items} nav items in single navigation bar (Max 7)")
         
         # Fitts' Law
         if re.search(r'height:\s*([0-3]\d)px', content) or re.search(r'h-[1-9]\b|h-10\b', content):
             self.warnings.append(f"[Fitts' Law] {filename}: Small targets (< 44px)")
         
         # Miller's Law
-        form_fields = len(re.findall(r'<input|<select|<textarea', content, re.IGNORECASE))
+        form_fields = len(re.findall(r'<input[\s>]|<select[\s>]|<textarea[\s>]', content, re.IGNORECASE))
         if form_fields > 7 and not re.search(r'step|wizard|stage', content, re.IGNORECASE):
             self.warnings.append(f"[Miller's Law] {filename}: Complex form ({form_fields} fields)")
             

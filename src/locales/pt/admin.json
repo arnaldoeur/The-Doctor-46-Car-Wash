@@ -1,10 +1,11 @@
 {
   "admin.nav.dashboard": "Painel de Controlo",
   "admin.nav.agenda": "Agenda",
-  "admin.nav.pos": "Ponto de Venda (POS)",
+  "admin.nav.pos": "Sistema POS",
   "admin.nav.queue": "Fila de Espera",
-  "admin.nav.inventory": "Gestão de Stock",
+  "admin.nav.inventory": "Inventário",
   "admin.nav.catalog": "Catálogo",
+  "admin.nav.documents": "Central PDF",
   "admin.nav.finance": "Finanças",
   "admin.nav.billing": "Faturação",
   "admin.nav.repository": "Repositório",
