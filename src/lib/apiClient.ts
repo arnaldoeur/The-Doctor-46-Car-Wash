@@ -628,6 +628,29 @@ function addAuditLog(module: string, action: string, entity_type: string, entity
 // ----------------------------------------------------
 
 export async function apiRequest<T>(action: string, body?: unknown): Promise<T> {
+  const mutatingActions = [
+    'admin.appointments.save',
+    'admin.appointments.delete',
+    'customer.appointment.create',
+    'admin.documents.save',
+    'admin.documents.create',
+    'admin.inventory.save',
+    'admin.inventory.adjust',
+    'admin.inventory.delete',
+    'admin.service_catalog.save',
+    'admin.service_catalog.delete',
+    'admin.profiles.save',
+    'admin.staff.save',
+    'admin.staff.delete',
+  ];
+  if (mutatingActions.includes(action)) {
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('doctor46_dashboard_refresh'));
+      }
+    }, 100);
+  }
+
   // 1. Intercept logout
   if (action === 'auth.logout') {
     clearLocalSession();

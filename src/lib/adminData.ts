@@ -201,11 +201,49 @@ async function loadProfilesMap() {
  return new Map(profiles.map((profile) => [profile.id, profile]));
 }
 
+function safeParseDate(dateStr: string | null | undefined): Date | null {
+ if (!dateStr) return null;
+ const trimmed = String(dateStr).trim();
+ const parsed = new Date(trimmed);
+ if (!isNaN(parsed.getTime())) {
+ return parsed;
+ }
+ const cleaned = trimmed.toLowerCase().replace(/\s+de\s+/g, ' ').replace(/\./g, '');
+ const monthsMap: Record<string, string> = {
+ jan: 'Jan', fev: 'Feb', mar: 'Mar', abr: 'Apr', mai: 'May', jun: 'Jun',
+ jul: 'Jul', ago: 'Aug', set: 'Sep', out: 'Oct', nov: 'Nov', dez: 'Dec'
+ };
+ const parts = cleaned.split(/\s+/);
+ if (parts.length >= 3) {
+ const day = parts[0];
+ const ptMonth = parts[1].substring(0, 3);
+ const year = parts[2];
+ const enMonth = monthsMap[ptMonth] || ptMonth;
+ const englishDateStr = `${day} ${enMonth} ${year}`;
+ const secondAttempt = new Date(englishDateStr);
+ if (!isNaN(secondAttempt.getTime())) {
+ return secondAttempt;
+ }
+ }
+ return null;
+}
+
+function isMatchDay(dateStr: string | null | undefined, targetDate: Date): boolean {
+ const parsed = safeParseDate(dateStr);
+ if (!parsed) return false;
+ return parsed.getFullYear() === targetDate.getFullYear() &&
+ parsed.getMonth() === targetDate.getMonth() &&
+ parsed.getDate() === targetDate.getDate();
+}
+
+const formatMoneyText = (value: number) =>
+ `${new Intl.NumberFormat('pt-MZ', {
+ minimumFractionDigits: 0,
+ maximumFractionDigits: 2,
+ }).format(value)} MT`;
+
 export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  const today = new Date();
- const todayIsoDate = format(today, 'yyyy-MM-dd');
- const todayUtcDate = new Date().toISOString().slice(0, 10);
- const isMatchToday = (dateStr: string) => dateStr === todayIsoDate || dateStr === todayUtcDate;
 
  const [appointments, profiles, documents, inventorySnapshot] = await Promise.all([
  apiRequest<AppointmentRow[]>('admin.appointments.list'),
@@ -219,48 +257,37 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
 
  const completedToday = appointments.filter(
  (appointment) =>
- isMatchToday(appointment.appointment_date) && appointment.status === 'completed'
+ isMatchDay(appointment.appointment_date, today) && appointment.status === 'completed'
  );
 
  const todayDocs = documents.filter(
  (document) =>
- isMatchToday(document.issue_date) &&
+ isMatchDay(document.issue_date, today) &&
  (document.kind === 'invoice' || document.kind === 'receipt')
  );
 
- const todayRevenueFromDocs = todayDocs.reduce((total, document) => total + parseMoneyText(document.total), 0);
-
- const todayRevenueFromAppointments = completedToday.reduce(
- (total, appointment) => total + parseMoneyText(appointment.service_price_text),
- 0
- );
-
- const todayRevenue = todayRevenueFromDocs > 0 ? todayRevenueFromDocs : todayRevenueFromAppointments;
+ const todayRevenue = todayDocs.reduce((total, document) => total + parseMoneyText(document.total), 0);
  const todayVehicles = completedToday.length > 0 ? completedToday.length : todayDocs.length;
+ const todayNewClients = profiles.filter(
+ (profile) =>
+ profile.account_type === 'customer' && isMatchDay(profile.created_at, today)
+ ).length;
  const averageTicket = todayVehicles > 0 ? Math.round(todayRevenue / todayVehicles) : 0;
 
  const weeklyData = Array.from({ length: 7 }, (_, index) => {
  const day = subDays(today, 6 - index);
- const isoDay = format(day, 'yyyy-MM-dd');
- const utcDay = new Date(day.getTime() - day.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
- const isMatchDay = (dateStr: string) => dateStr === isoDay || dateStr === utcDay;
 
- const dailyAppointments = appointments.filter((appointment) => isMatchDay(appointment.appointment_date));
+ const dailyAppointments = appointments.filter((appointment) => isMatchDay(appointment.appointment_date, day));
  const dailyCompleted = dailyAppointments.filter((appointment) => appointment.status === 'completed');
- const dailyRevenueFromDocs = documents
+ const dailyRevenue = documents
  .filter(
  (document) =>
- isMatchDay(document.issue_date) &&
+ isMatchDay(document.issue_date, day) &&
  (document.kind === 'invoice' || document.kind === 'receipt')
  )
  .reduce((total, document) => total + parseMoneyText(document.total), 0);
- const dailyRevenueFromAppointments = dailyCompleted.reduce(
- (total, appointment) => total + parseMoneyText(appointment.service_price_text),
- 0
- );
 
- const dailyRevenue = dailyRevenueFromDocs > 0 ? dailyRevenueFromDocs : dailyRevenueFromAppointments;
- const dailyVehicles = dailyCompleted.length > 0 ? dailyCompleted.length : (dailyRevenueFromDocs > 0 ? documents.filter(d => isMatchDay(d.issue_date) && (d.kind === 'invoice' || d.kind === 'receipt')).length : 0);
+ const dailyVehicles = dailyCompleted.length > 0 ? dailyCompleted.length : documents.filter(d => isMatchDay(d.issue_date, day) && (d.kind === 'invoice' || d.kind === 'receipt')).length;
 
  return {
  name: format(day, 'EEE', { locale: ptBR }).toUpperCase(),
@@ -269,17 +296,32 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  };
  });
 
- const recentActivity = appointments.slice(0, 10).map((appointment) => {
- const profile = profilesMap.get(appointment.customer_id) ?? null;
- const operator = appointment.customer_id ? getProfileDisplayName(profile) : 'Sistema';
+ const activities: Array<{
+ id: string;
+ label: string;
+ client: string;
+ service: string;
+ status: string;
+ value: string;
+ date: string;
+ payment: string;
+ vehicle: string;
+ operator: string;
+ timestamp: number;
+ }> = [];
 
- return {
+ appointments.forEach((appointment) => {
+ const profile = profilesMap.get(appointment.customer_id) ?? null;
+ const clientName = appointment.contact_name || getProfileDisplayName(profile) || 'Cliente';
+ const operatorName = appointment.customer_id ? getProfileDisplayName(profile) : 'Sistema';
+ const ts = Date.parse(appointment.created_at || appointment.appointment_date) || 0;
+
+ activities.push({
  id: `#${appointment.id.slice(0, 8)}`,
- label: appointment.id,
- client: appointment.contact_name || getProfileDisplayName(profile),
+ label: `appointment-${appointment.id}`,
+ client: clientName,
  service: appointment.service_name,
- status:
- appointment.status === 'completed'
+ status: appointment.status === 'completed'
  ? 'Finalizado'
  : appointment.status === 'confirmed'
  ? 'Confirmado'
@@ -290,9 +332,58 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  date: `${format(parseISO(appointment.created_at), 'dd MM yy')} ${appointment.appointment_time}`,
  payment: 'A validar',
  vehicle: `${appointment.vehicle_make} ${appointment.vehicle_model} (${appointment.vehicle_plate})`,
- operator,
- };
+ operator: operatorName,
+ timestamp: ts,
  });
+ });
+
+ documents.forEach((doc) => {
+ const ts = Date.parse(doc.created_at || doc.issue_date) || 0;
+ const serviceNames = Array.isArray(doc.items)
+ ? doc.items.map(item => item.description).join(', ')
+ : 'Venda POS';
+
+ activities.push({
+ id: doc.number,
+ label: `doc-${doc.id}`,
+ client: doc.party?.name || 'Cliente Geral',
+ service: serviceNames,
+ status: doc.kind === 'receipt' ? 'Pago (Recibo)' : (doc.status === 'Paid' ? 'Pago' : 'Faturado'),
+ value: formatMoneyText(parseMoneyText(doc.total)),
+ date: format(parseISO(doc.created_at || new Date().toISOString()), 'dd MM yy HH:mm'),
+ payment: doc.paymentMethod || 'A validar',
+ vehicle: '-',
+ operator: doc.issued_by || 'Operador',
+ timestamp: ts,
+ });
+ });
+
+ const itemsMap = new Map(inventoryItems.map(i => [i.id, i]));
+ inventoryMovements.forEach((movement) => {
+ const ts = Date.parse(movement.created_at) || 0;
+ const item = itemsMap.get(movement.inventory_item_id);
+ const itemName = item ? item.name : 'Produto';
+ const operatorProfile = profilesMap.get(movement.performed_by || '') ?? null;
+ const operatorName = getProfileDisplayName(operatorProfile) || 'Operador Stock';
+
+ activities.push({
+ id: `#${movement.id.slice(0, 8)}`,
+ label: `movement-${movement.id}`,
+ client: '-',
+ service: `${movement.movement_type === 'restock' ? 'Entrada' : 'Saída'}: ${itemName}`,
+ status: movement.movement_type.toUpperCase(),
+ value: `${movement.quantity > 0 ? '+' : ''}${movement.quantity} ${item?.unit || 'un'}`,
+ date: format(parseISO(movement.created_at || new Date().toISOString()), 'dd MM yy HH:mm'),
+ payment: '-',
+ vehicle: '-',
+ operator: operatorName,
+ timestamp: ts,
+ });
+ });
+
+ const recentActivity = activities
+ .sort((a, b) => b.timestamp - a.timestamp)
+ .slice(0, 10);
 
  const lowStockCount = inventoryItems.filter((item) => item.quantity <= item.min_stock).length;
  const movementTotals = new Map<string, { quantity: number; amount: number }>();
@@ -329,7 +420,7 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
  return {
  todayRevenue,
  todayVehicles,
- todayNewClients: profiles.filter((profile) => profile.account_type === 'customer').length,
+ todayNewClients,
  averageTicket,
  weeklyData,
  recentActivity,

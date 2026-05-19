@@ -125,10 +125,10 @@ const dashboardCopy = {
 };
 
 export default function Dashboard() {
- const { language } = useLanguage();
- const copy = dashboardCopy[language];
- const [loading, setLoading] = useState(true);
- const [snapshot, setSnapshot] = useState<DashboardSnapshot>(initialState);
+  const { language } = useLanguage();
+  const copy = dashboardCopy[language];
+  const [loading, setLoading] = useState(true);
+  const [snapshot, setSnapshot] = useState<DashboardSnapshot>(initialState);
  const [selectedMetric, setSelectedMetric] = useState<MetricCard | null>(null);
  const [errorMessage, setErrorMessage] = useState('');
 
@@ -160,8 +160,13 @@ export default function Dashboard() {
 
  void load();
 
+ const handleCustomRefresh = () => {
+ fetchDashboardSnapshot().then(setSnapshot).catch(console.error);
+ };
+ window.addEventListener('doctor46_dashboard_refresh', handleCustomRefresh);
  return () => {
  active = false;
+ window.removeEventListener('doctor46_dashboard_refresh', handleCustomRefresh);
  };
  }, []);
 
