@@ -118,9 +118,9 @@ app.post('/api/auth/login', async (req, res) => {
 
 // Fallback dynamic API router for remaining endpoints
 app.all('/api/*', async (req, res) => {
-  return res.json({
-    success: true,
-    message: 'The Doctor 46 API Endpoint processed successfully in Node.js server',
+  return res.status(404).json({
+    success: false,
+    error: 'Endpoint not implemented in Node.js backend. Fallback to mock API requested.',
     action: req.path.replace('/api/', ''),
     timestamp: new Date().toISOString()
   });
