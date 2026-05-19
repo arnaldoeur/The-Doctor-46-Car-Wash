@@ -339,19 +339,19 @@ export async function fetchDashboardSnapshot(): Promise<DashboardSnapshot> {
 
  documents.forEach((doc) => {
  const ts = Date.parse(doc.created_at || doc.issue_date) || 0;
- const serviceNames = Array.isArray(doc.items)
- ? doc.items.map(item => item.description).join(', ')
+ const serviceNames = Array.isArray(doc.business_document_items)
+ ? doc.business_document_items.map(item => item.description).join(', ')
  : 'Venda POS';
 
  activities.push({
  id: doc.number,
  label: `doc-${doc.id}`,
- client: doc.party?.name || 'Cliente Geral',
+ client: doc.party_name || 'Cliente Geral',
  service: serviceNames,
  status: doc.kind === 'receipt' ? 'Pago (Recibo)' : (doc.status === 'Paid' ? 'Pago' : 'Faturado'),
  value: formatMoneyText(parseMoneyText(doc.total)),
  date: format(parseISO(doc.created_at || new Date().toISOString()), 'dd MM yy HH:mm'),
- payment: doc.paymentMethod || 'A validar',
+ payment: doc.payment_method || 'A validar',
  vehicle: '-',
  operator: doc.issued_by || 'Operador',
  timestamp: ts,

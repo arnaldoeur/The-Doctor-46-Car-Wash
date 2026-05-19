@@ -495,7 +495,7 @@ export default function POS() {
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 )}
               >
-                <FileText className={cn("h-4 w-4 transition-transform", documentType === 'invoice' ? "scale-110 text-white" : "text-purple-400")} />
+                <FileText className={cn("h-4 w-4 transition-transform", documentType === 'invoice' ? "scale-110 text-white" : "text-emerald-400")} />
                 {t('admin.pos.invoice', 'Fatura (A pagar)')}
               </button>
             </div>
