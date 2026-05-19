@@ -189,6 +189,19 @@ const buildPdfInstance = async (document: BusinessDocument): Promise<jsPDF> => {
 		pdf.setFontSize(12);
 		pdf.text('Total', 128, cursorY + 33);
 		pdf.text(money(totals.total), 188, cursorY + 33, { align: 'right' });
+
+		if (profile.bankDetails) {
+			pdf.setDrawColor(226, 232, 240);
+			pdf.roundedRect(14, cursorY + 8, 102, 33, 4, 4);
+			pdf.setFont('helvetica', 'bold');
+			pdf.setFontSize(9.5);
+			pdf.text('Coordenadas Bancárias (Pagamento)', 18, cursorY + 15);
+			pdf.setFont('helvetica', 'normal');
+			pdf.setFontSize(8.5);
+			const bankLines = pdf.splitTextToSize(profile.bankDetails, 94);
+			pdf.text(bankLines, 18, cursorY + 22);
+		}
+
 		cursorY += 49;
 	} else {
 		pdf.setFont('helvetica', 'normal');

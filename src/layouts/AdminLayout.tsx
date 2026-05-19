@@ -101,9 +101,9 @@ function SidebarContent({
             />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-base font-semibold text-white">Super Admin</div>
+            <div className="truncate text-base font-semibold text-white">{displayName || 'Super Admin'}</div>
             <div className="text-xs uppercase tracking-wider text-gray-400 mt-0.5">
-              Administrador Geral do Sistema
+              {profile?.role === 'super_admin' ? 'Administrador Geral' : profile?.role === 'admin' ? 'Administrador' : 'Colaborador / Staff'}
             </div>
           </div>
         </div>
@@ -111,7 +111,14 @@ function SidebarContent({
 
       {/* Nav */}
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 custom-scrollbar">
-        {navigation.map((item) => {
+        {navigation.filter((item) => {
+          const role = profile?.role || 'operational';
+          const isFullAdmin = role === 'super_admin' || role === 'admin';
+          if (!isFullAdmin) {
+            return !['finance', 'billing', 'team', 'settings'].includes(item.key);
+          }
+          return true;
+        }).map((item) => {
           const isActive = location.pathname === item.href;
           return (
             <motion.div key={item.key} whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}>

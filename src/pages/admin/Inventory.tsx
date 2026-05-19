@@ -256,6 +256,10 @@ export default function Inventory() {
  }
  };
 
+ const lowStockItems = useMemo(() => {
+    return items.filter(item => item.is_active && item.quantity <= item.min_stock);
+  }, [items]);
+
  return (
  <div className="space-y-8">
  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -333,36 +337,63 @@ export default function Inventory() {
  </div>
  </div>
 
- <div className="rounded-2xl border border-white/10 bg-dark p-6">
- <div className="mb-5 flex items-center gap-3">
- <AlertTriangle className="h-5 w-5 text-amber-400" />
+ <div className="rounded-2xl border border-white/10 bg-dark p-6 space-y-6">
  <div>
- <h2 className="text-xl font-bold font-display">{t('admin.inventory.low_rotation_title')}</h2>
- <p className="text-sm text-gray-400">{t('admin.inventory.low_rotation_sub')}</p>
+ <div className="mb-4 flex items-center gap-3">
+ <AlertTriangle className="h-5 w-5 text-red-500" />
+ <div>
+ <h2 className="text-lg font-bold font-display">Alertas de Ruptura (Stock Baixo)</h2>
+ <p className="text-xs text-gray-400">Produtos que precisam de reposição imediata</p>
+ </div>
+ </div>
+ <div className="space-y-2">
+ {lowStockItems.length > 0 ? (
+ lowStockItems.slice(0, 3).map((item) => (
+ <div key={item.id} className="flex items-center justify-between rounded-xl border border-red-500/10 bg-red-500/5 px-4 py-2 text-xs">
+ <span className="font-semibold text-red-200">{item.name}</span>
+ <span className="text-red-400 font-bold">Apenas {item.quantity} {item.unit} (Min: {item.min_stock})</span>
+ </div>
+ ))
+ ) : (
+ <div className="text-xs text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 rounded-xl px-4 py-2 text-center">
+ ✓ Todos os níveis de stock estão adequados
+ </div>
+ )}
  </div>
  </div>
 
- <div className="space-y-3">
+ <div className="border-t border-white/5 pt-4">
+ <div className="mb-4 flex items-center gap-3">
+ <Package className="h-5 w-5 text-amber-400" />
+ <div>
+ <h2 className="text-lg font-bold font-display">{t('admin.inventory.low_rotation_title')}</h2>
+ <p className="text-xs text-gray-400">{t('admin.inventory.low_rotation_sub')}</p>
+ </div>
+ </div>
+ <div className="space-y-2">
  {lowRotation.length > 0 ? (
  lowRotation.map((item) => (
  <div
  key={item.name}
- className="flex items-center justify-between rounded-2xl border border-white/10 bg-darker/70 px-4 py-3"
+ className="flex items-center justify-between rounded-xl border border-white/10 bg-darker px-4 py-2.5 text-xs"
  >
  <div>
  <div className="font-medium text-white">{item.name}</div>
- <div className="text-sm text-gray-500">{item.sold} {t('admin.inventory.low_rotation_outflows', 'saídas registadas')}</div>
+ <div className="text-[10px] text-gray-500">
+ {item.sold} {t('admin.inventory.low_rotation_outflows', 'saídas registadas')}
  </div>
- <div className="text-sm text-gray-300">
+ </div>
+ <div className="text-gray-300">
  {t('admin.inventory.low_rotation_stock', 'Stock atual')} <span className="font-semibold text-white">{item.stock}</span>
  </div>
  </div>
  ))
  ) : (
- <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-gray-500">
+ <div className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-xs text-gray-500">
  {t('admin.inventory.low_rotation_empty')}
  </div>
  )}
+ </div>
  </div>
  </div>
  </div>

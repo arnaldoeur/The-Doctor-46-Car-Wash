@@ -154,6 +154,10 @@ export default function Finance() {
               icon={TrendingUp}
               iconClassName="text-emerald-400"
               panelClassName="bg-emerald-500/10"
+              subValues={[
+                { label: 'Com IVA (IVA Incluso)', value: snapshot.formatMoney(snapshot.incomeWithVat) },
+                { label: 'Sem IVA (IVA Isento)', value: snapshot.formatMoney(snapshot.incomeWithoutVat) }
+              ]}
             />
             <KpiCard
               label={t('admin.finance.kpi_expense')}
@@ -272,6 +276,13 @@ export default function Finance() {
                 <Detail label={t('admin.finance.th_status')} value={selectedTransaction.status} />
               </div>
               <Detail label={t('admin.finance.th_party')} value={selectedTransaction.party} />
+              <div className="grid grid-cols-2 gap-4">
+                <Detail label="Categoria IVA" value={selectedTransaction.report_category === 'with_vat' ? 'Com IVA' : 'Isento (Sem IVA)'} />
+                <Detail label="Valor IVA" value={snapshot.formatMoney(selectedTransaction.vat_amount || 0)} />
+              </div>
+              {selectedTransaction.issued_by && (
+                <Detail label="Operador / Responsável" value={`ID: ${selectedTransaction.issued_by}`} />
+              )}
               <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-dark p-4">
                 <p className="text-sm text-gray-400">{t('admin.finance.modal_value_label')}</p>
                 <p
@@ -362,12 +373,14 @@ function KpiCard({
   icon: Icon,
   iconClassName,
   panelClassName,
+  subValues,
 }: {
   label: string;
   value: string;
   icon: typeof TrendingUp;
   iconClassName: string;
   panelClassName: string;
+  subValues?: Array<{ label: string; value: string }>;
 }) {
   return (
     <div className="rounded-3xl border border-white/10 bg-dark p-6">
@@ -378,6 +391,16 @@ function KpiCard({
       </div>
       <h3 className="mb-1 font-medium text-gray-400">{label}</h3>
       <p className="text-3xl font-bold font-display text-white">{value}</p>
+      {subValues && subValues.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-white/5 flex flex-col gap-1.5 text-xs text-gray-400 font-medium">
+          {subValues.map((sv, idx) => (
+            <div key={idx} className="flex justify-between items-center">
+              <span>{sv.label}</span>
+              <span className="text-gray-200 font-semibold">{sv.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

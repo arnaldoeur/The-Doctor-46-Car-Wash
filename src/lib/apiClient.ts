@@ -40,7 +40,7 @@ function clearLocalSession() {
 // DEFAULT MOCK SEED DATASETS
 // ----------------------------------------------------
 
-const defaultMockCatalog = [
+const defaultMockCatalog: any[] = [
   {
     id: 'SVC-001',
     code: 'LAV-SIMP',
@@ -914,6 +914,8 @@ export async function apiRequest<T>(action: string, body?: unknown): Promise<T> 
           base_price: Number(b.base_price || item.base_price),
           promotional_price: b.promotional_price !== undefined && b.promotional_price !== null ? Number(b.promotional_price) : null,
           is_promotional: Boolean(b.is_promotional),
+          promo_start_date: b.promo_start_date !== undefined ? b.promo_start_date : (item.promo_start_date || null),
+          promo_end_date: b.promo_end_date !== undefined ? b.promo_end_date : (item.promo_end_date || null),
           vat_enabled: Boolean(b.vat_enabled),
           vat_included: Boolean(b.vat_included),
           vat_rate: Number(b.vat_rate || item.vat_rate),
@@ -932,6 +934,8 @@ export async function apiRequest<T>(action: string, body?: unknown): Promise<T> 
           base_price: Number(b.base_price || 0),
           promotional_price: b.promotional_price ? Number(b.promotional_price) : null,
           is_promotional: Boolean(b.is_promotional),
+          promo_start_date: b.promo_start_date || null,
+          promo_end_date: b.promo_end_date || null,
           vat_enabled: Boolean(b.vat_enabled),
           vat_included: Boolean(b.vat_included),
           vat_rate: Number(b.vat_rate || 16),

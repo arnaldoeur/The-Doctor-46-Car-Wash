@@ -46,16 +46,6 @@ import CustomerLoyaltyPage from './pages/customer/Loyalty';
 import CustomerProfilePage from './pages/customer/Profile';
 
 export default function App() {
- useEffect(() => {
- if (typeof window === 'undefined') return;
-
- [
- 'doctor46.business-documents.v1',
- 'doctor46.catalog.services.v1',
- 'doctor46.catalog.clients.v1',
- ].forEach((key) => window.localStorage.removeItem(key));
- }, []);
-
  return (
  <Router>
  <Seo />

@@ -18,6 +18,8 @@ type CatalogDraft = {
   base_price: number;
   promotional_price: number;
   is_promotional: boolean;
+  promo_start_date: string;
+  promo_end_date: string;
   vat_enabled: boolean;
   vat_included: boolean;
   vat_rate: number;
@@ -34,6 +36,8 @@ const emptyDraft: CatalogDraft = {
   base_price: 0,
   promotional_price: 0,
   is_promotional: false,
+  promo_start_date: '',
+  promo_end_date: '',
   vat_enabled: true,
   vat_included: false,
   vat_rate: 16,
@@ -116,6 +120,8 @@ export default function Catalog() {
       base_price: service.base_price,
       promotional_price: service.promotional_price ?? 0,
       is_promotional: service.is_promotional,
+      promo_start_date: service.promo_start_date ?? '',
+      promo_end_date: service.promo_end_date ?? '',
       vat_enabled: service.vat_enabled,
       vat_included: service.vat_included,
       vat_rate: service.vat_rate,
@@ -167,6 +173,8 @@ export default function Catalog() {
         base_price: draft.base_price,
         promotional_price: draft.is_promotional ? draft.promotional_price : null,
         is_promotional: draft.is_promotional,
+        promo_start_date: draft.is_promotional ? draft.promo_start_date || null : null,
+        promo_end_date: draft.is_promotional ? draft.promo_end_date || null : null,
         vat_enabled: draft.vat_enabled,
         vat_included: draft.vat_included,
         vat_rate: draft.vat_enabled ? draft.vat_rate : 0,
@@ -354,6 +362,27 @@ export default function Catalog() {
               </Field>
             </div>
 
+            {draft.is_promotional && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field label="Início da Promoção">
+                  <input
+                    type="date"
+                    value={draft.promo_start_date}
+                    onChange={(event) => updateDraft('promo_start_date', event.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-darker px-4 py-3 text-white focus:border-primary focus:outline-none text-sm"
+                  />
+                </Field>
+                <Field label="Fim da Promoção">
+                  <input
+                    type="date"
+                    value={draft.promo_end_date}
+                    onChange={(event) => updateDraft('promo_end_date', event.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-darker px-4 py-3 text-white focus:border-primary focus:outline-none text-sm"
+                  />
+                </Field>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <PriceCard label={t('admin.catalog.card_base_price')} value={formatMoney(draft.base_price)} />
               <PriceCard
@@ -424,6 +453,11 @@ export default function Catalog() {
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
                             <Tag className="h-3.5 w-3.5" />
                             {t('admin.catalog.badge_promotional')}
+                            {service.promo_start_date && service.promo_end_date && (
+                              <span className="text-[10px] text-amber-400 font-medium">
+                                ({service.promo_start_date} a {service.promo_end_date})
+                              </span>
+                            )}
                           </span>
                         ) : null}
                         <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">

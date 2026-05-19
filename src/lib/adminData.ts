@@ -12,6 +12,8 @@ export type ServiceCatalogRow = {
  base_price: number;
  promotional_price: number | null;
  is_promotional: boolean;
+ promo_start_date?: string | null;
+ promo_end_date?: string | null;
  vat_enabled: boolean;
  vat_included: boolean;
  vat_rate: number;
@@ -416,53 +418,68 @@ export async function createQueueAppointment(payload: {
 }
 
 export async function fetchFinanceSnapshot() {
- const [documents, appointments] = await Promise.all([
- fetchBusinessDocuments(),
- fetchAgendaAppointments(),
- ]);
+  const [documents, appointments] = await Promise.all([
+    fetchBusinessDocuments(),
+    fetchAgendaAppointments(),
+  ]);
 
- const financeRows =
- documents.length > 0
- ? documents
- .filter((document) => document.kind !== 'letterhead' && document.kind !== 'quotation')
- .map((document) => ({
- id: document.number,
- description: document.title || document.party_name,
- type:
- document.kind === 'purchase-order'
- ? ('expense' as const)
- : ('income' as const),
- amount: parseMoneyText(document.total),
- date: document.issue_date,
- status: document.status,
- party: document.party_name,
- }))
- : appointments
- .filter((appointment) => appointment.status === 'completed')
- .map((appointment) => ({
- id: appointment.id,
- description: `${appointment.service_name} - ${appointment.contact_name}`,
- type: 'income' as const,
- amount: parseMoneyText(appointment.service_price_text),
- date: appointment.appointment_date,
- status: 'Concluido',
- party: appointment.contact_name,
- }));
+  const financeRows =
+    documents.length > 0
+      ? documents
+          .filter((document) => document.kind !== 'letterhead' && document.kind !== 'quotation')
+          .map((document) => ({
+            id: document.number,
+            description: document.title || document.party_name,
+            type:
+              document.kind === 'purchase-order'
+                ? ('expense' as const)
+                : ('income' as const),
+            amount: parseMoneyText(document.total),
+            date: document.issue_date,
+            status: document.status,
+            party: document.party_name,
+            report_category: document.report_category || (document.vat_enabled ? 'with_vat' : 'without_vat'),
+            vat_amount: parseMoneyText(document.vat_amount),
+            issued_by: document.issued_by,
+          }))
+      : appointments
+          .filter((appointment) => appointment.status === 'completed')
+          .map((appointment) => ({
+            id: appointment.id,
+            description: `${appointment.service_name} - ${appointment.contact_name}`,
+            type: 'income' as const,
+            amount: parseMoneyText(appointment.service_price_text),
+            date: appointment.appointment_date,
+            status: 'Concluido',
+            party: appointment.contact_name,
+            report_category: 'without_vat',
+            vat_amount: 0,
+            issued_by: null,
+          }));
 
- const totalIncome = financeRows
- .filter((row) => row.type === 'income')
- .reduce((sum, row) => sum + row.amount, 0);
- const totalExpense = financeRows
- .filter((row) => row.type === 'expense')
- .reduce((sum, row) => sum + row.amount, 0);
+  const totalIncome = financeRows
+    .filter((row) => row.type === 'income')
+    .reduce((sum, row) => sum + row.amount, 0);
+  const totalExpense = financeRows
+    .filter((row) => row.type === 'expense')
+    .reduce((sum, row) => sum + row.amount, 0);
 
- return {
- rows: financeRows,
- totalIncome,
- totalExpense,
- netProfit: totalIncome - totalExpense,
- formatMoney,
- };
+  const incomeWithVat = financeRows
+    .filter((row) => row.type === 'income' && row.report_category === 'with_vat')
+    .reduce((sum, row) => sum + row.amount, 0);
+  const incomeWithoutVat = financeRows
+    .filter((row) => row.type === 'income' && row.report_category !== 'with_vat')
+    .reduce((sum, row) => sum + row.amount, 0);
+
+  return {
+    rows: financeRows,
+    totalIncome,
+    totalExpense,
+    incomeWithVat,
+    incomeWithoutVat,
+    netProfit: totalIncome - totalExpense,
+    formatMoney,
+  };
 }
 
 export async function saveCatalogService(payload: Record<string, unknown>) {
