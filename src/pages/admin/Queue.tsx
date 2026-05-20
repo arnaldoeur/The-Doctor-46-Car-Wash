@@ -28,24 +28,36 @@ const columnConfig: Record<QueueColumn, {
   helperKey: string;
   icon: typeof Clock;
   dbStatuses: QueueAppointment['status'][];
+  color: string;
+  bg: string;
+  border: string;
 }> = {
   waiting: {
     labelKey: 'admin.queue.waiting_label',
     helperKey: 'admin.queue.waiting_helper',
     icon: Clock,
     dbStatuses: ['pending'],
+    color: 'text-amber-500',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/20',
   },
   in_progress: {
     labelKey: 'admin.queue.in_progress_label',
     helperKey: 'admin.queue.in_progress_helper',
     icon: Play,
     dbStatuses: ['confirmed'],
+    color: 'text-blue-500',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/20',
   },
   ready: {
     labelKey: 'admin.queue.ready_label',
     helperKey: 'admin.queue.ready_helper',
     icon: CheckCircle2,
     dbStatuses: ['completed'],
+    color: 'text-emerald-500',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/20',
   },
 };
 
@@ -111,6 +123,7 @@ export default function Queue() {
       setNewContact('');
       setNewPlate('');
       setMessage('Veículo adicionado com sucesso à fila de espera!');
+      setTimeout(() => setMessage(''), 4000);
     } catch (err) {
       console.error('Failed to create vehicle in queue', err);
       setErrorMessage('Erro ao adicionar veículo à fila de espera.');
@@ -146,63 +159,65 @@ export default function Queue() {
       setErrorMessage('');
       await updateAppointmentStatus(appointmentId, status);
       await loadQueue();
-      setMessage(t('admin.queue.success_update'));
     } catch (error) {
       console.error('Failed to update queue status', error);
-      setErrorMessage(
-        error instanceof Error ? error.message : t('admin.queue.error_update')
-      );
+      setErrorMessage(error instanceof Error ? error.message : t('admin.queue.error_update'));
     } finally {
       setSavingId(null);
     }
   };
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="space-y-8 pb-10">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="mb-2 text-3xl font-bold font-display">{t('admin.queue.title')}</h1>
-          <p className="text-gray-400">
+          <h1 className="mb-2 text-2xl font-bold font-display tracking-tight text-white">{t('admin.queue.title')}</h1>
+          <p className="text-sm text-gray-400">
             {t('admin.queue.sub')}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <button
-            type="button"
-            onClick={() => setIsAddOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-semibold text-white transition-all hover:bg-primary-hover shadow-lg font-display"
+            onClick={() => void loadQueue()}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#141414] px-4 text-sm font-semibold text-white transition-all hover:bg-[#1C1C1C] hover:border-white/20 shadow-sm"
           >
-            <Plus className="h-5 w-5" />
-            <span>Adicionar Veículo</span>
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            {t('admin.queue.refresh')}
           </button>
           <button
-            type="button"
-            onClick={() => void loadQueue()}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2.5 font-semibold text-white transition-all hover:bg-white/10"
+            onClick={() => setIsAddOpen(true)}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-bold text-white transition-all hover:bg-primary-hover shadow-[0_0_15px_rgba(0,71,255,0.4)] hover:shadow-[0_0_25px_rgba(0,71,255,0.6)] active:scale-95"
           >
-            <RefreshCw className="h-5 w-5" />
-            {t('admin.queue.refresh')}
+            <Plus className="h-4 w-4" />
+            <span>Add Vehicle</span>
           </button>
         </div>
       </div>
 
-      {message ? (
-        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-200">
-          {message}
-        </div>
-      ) : null}
-      {errorMessage ? (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm text-red-200">
-          {errorMessage}
-        </div>
-      ) : null}
+      <AnimatePresence>
+        {message && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-200 flex items-center gap-3 shadow-lg">
+            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+            {message}
+          </motion.div>
+        )}
+        {errorMessage && (
+          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-5 py-4 text-sm text-rose-200 flex items-center gap-3 shadow-lg">
+            <AlertCircle className="h-5 w-5 text-rose-400" />
+            {errorMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {loading ? (
-        <div className="flex min-h-[420px] items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      {loading && queueItems.length === 0 ? (
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="relative flex items-center justify-center">
+            <div className="absolute w-16 h-16 border-t-2 border-primary border-solid rounded-full animate-spin"></div>
+            <Loader2 className="h-6 w-6 animate-spin text-white z-10" />
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 items-start">
           {(['waiting', 'in_progress', 'ready'] as QueueColumn[]).map((column) => {
             const config = columnConfig[column];
             const items = queueItems.filter((item) => item.column === column);
@@ -211,110 +226,112 @@ export default function Queue() {
             return (
               <section
                 key={column}
-                className="flex h-[calc(100vh-16rem)] min-h-[520px] flex-col rounded-3xl border border-white/10 bg-dark p-6"
+                className="flex flex-col rounded-[2rem] border border-white/[0.04] bg-[#0F0F0F] p-5 lg:h-[calc(100vh-16rem)] lg:min-h-[600px] shadow-2xl relative overflow-hidden"
               >
-                <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-4">
+                {/* Subtle column background gradient based on state */}
+                <div className={cn("absolute top-0 inset-x-0 h-32 opacity-20 bg-gradient-to-b from-current to-transparent pointer-events-none", config.color)} />
+
+                <div className="mb-5 flex items-center justify-between border-b border-white/[0.04] pb-4 relative z-10">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-                      <Icon className="h-5 w-5 text-primary" />
+                    <div className={cn("flex h-10 w-10 items-center justify-center rounded-xl border shadow-inner", config.bg, config.border)}>
+                      <Icon className={cn("h-5 w-5", config.color)} />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold font-display">{t(config.labelKey)}</h2>
-                      <p className="text-xs text-gray-500">{t(config.helperKey)}</p>
+                      <h2 className="text-sm font-bold font-display text-white tracking-wide">{t(config.labelKey)}</h2>
+                      <p className="text-[11px] text-gray-500 font-medium mt-0.5">{t(config.helperKey)}</p>
                     </div>
                   </div>
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-sm font-medium text-white">
+                  <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-white/[0.05] px-2 text-xs font-bold text-gray-300 border border-white/10">
                     {items.length}
                   </span>
                 </div>
 
-                <div className="flex-1 space-y-4 overflow-y-auto pr-2">
+                <div className="flex-1 space-y-4 overflow-y-auto custom-scrollbar pr-2 relative z-10 pb-4">
                   <AnimatePresence>
                     {items.map((item) => (
                       <motion.div
                         key={item.id}
                         layout
-                        initial={{ opacity: 0, scale: 0.96 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.96 }}
-                        className="rounded-2xl border border-white/10 bg-darker p-5 shadow-md hover:border-white/20 transition-all"
+                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="group rounded-2xl border border-white/[0.05] bg-[#141414] p-5 shadow-lg hover:border-white/20 transition-all hover:bg-white/[0.02]"
                       >
-                        <div className="mb-3 flex items-start justify-between gap-3">
+                        <div className="mb-4 flex items-start justify-between gap-3">
                           <div>
-                            <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-1 font-mono text-xs font-bold text-primary">
-                              {item.ticket}
+                            <span className={cn("rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest", config.bg, config.border, config.color)}>
+                              #{item.ticket}
                             </span>
-                            <div className="mt-2 text-xs text-gray-500">
-                              {item.appointment_date} às {item.appointment_time}
+                            <div className="mt-2 text-[11px] font-medium text-gray-500 flex items-center gap-1.5">
+                              <Clock className="h-3 w-3" />
+                              {item.appointment_date} at {item.appointment_time}
                             </div>
                           </div>
-                          {item.status === 'pending' ? (
-                            <AlertCircle className="h-5 w-5 text-amber-400" />
-                          ) : null}
+                          {item.status === 'pending' && <AlertCircle className="h-4 w-4 text-amber-500/50" />}
                         </div>
 
-                        <h3 className="mb-2 text-lg font-bold text-white">{item.service_name}</h3>
-                        <div className="space-y-2 text-sm text-gray-400">
+                        <h3 className="mb-3 text-base font-bold text-white/90 leading-tight">{item.service_name}</h3>
+                        
+                        <div className="space-y-2 text-xs text-gray-400 font-medium">
                           <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-500" />
+                            <User className="h-3.5 w-3.5 text-gray-500" />
                             {item.contact_name}
                           </div>
                           <div className="flex items-center gap-2">
-                            <Car className="h-4 w-4 text-gray-500" />
+                            <Car className="h-3.5 w-3.5 text-gray-500" />
                             {item.vehicle}
                           </div>
                         </div>
 
-                        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
-                          {column === 'waiting' ? (
+                        <div className="mt-5 flex flex-wrap items-center gap-2 pt-4">
+                          {column === 'waiting' && (
                             <button
-                              type="button"
                               disabled={savingId === item.id}
-                              onClick={() => void setStatus(item.id, 'confirmed')}
-                              className="rounded-lg border border-blue-500/30 bg-blue-500/20 p-2 text-blue-300 transition-colors hover:bg-blue-500/30 disabled:opacity-60 flex items-center gap-1.5 px-3"
-                              title={t('admin.queue.btn_start')}
+                              onClick={() => setStatus(item.id, 'confirmed')}
+                              className="flex-1 rounded-xl border border-blue-500/30 bg-blue-500/10 py-2 text-blue-400 hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 font-bold text-xs"
                             >
-                              <Play className="h-4 w-4 fill-current" />
-                              <span className="text-xs font-bold">Iniciar Lavagem</span>
+                              {savingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-current" />}
+                              Start Wash
                             </button>
-                          ) : null}
-                          {column === 'in_progress' ? (
+                          )}
+                          
+                          {column === 'in_progress' && (
                             <button
-                              type="button"
                               disabled={savingId === item.id}
-                              onClick={() => void setStatus(item.id, 'completed')}
-                              className="rounded-lg border border-emerald-500/30 bg-emerald-500/20 p-2 text-emerald-300 transition-colors hover:bg-emerald-500/30 disabled:opacity-60 flex items-center gap-1.5 px-3"
-                              title={t('admin.queue.btn_complete')}
+                              onClick={() => setStatus(item.id, 'completed')}
+                              className="flex-1 rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-1.5 font-bold text-xs shadow-[0_0_15px_rgba(16,185,129,0.1)]"
                             >
-                              <CheckCircle2 className="h-4 w-4" />
-                              <span className="text-xs font-bold">Concluir</span>
+                              {savingId === item.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                              Complete
                             </button>
-                          ) : null}
+                          )}
+
                           <button
-                            type="button"
                             disabled={savingId === item.id}
-                            onClick={() => void setStatus(item.id, 'cancelled')}
+                            onClick={() => setStatus(item.id, 'cancelled')}
                             className={cn(
-                              'rounded-lg border border-white/10 bg-white/5 p-2 text-gray-400 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-60',
-                              column === 'ready' && 'ml-auto'
+                              'flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-[#0A0A0A] text-gray-500 transition-colors hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-50 shrink-0',
+                              column === 'ready' && 'flex-1 h-auto py-2 flex-row gap-2'
                             )}
-                            title={t('admin.queue.btn_remove')}
+                            title="Remove/Cancel"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-3.5 w-3.5" />
+                            {column === 'ready' && <span className="text-xs font-bold">Remove from Queue</span>}
                           </button>
-                          {savingId === item.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-primary ml-auto" />
-                          ) : null}
                         </div>
                       </motion.div>
                     ))}
                   </AnimatePresence>
 
-                  {items.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-white/10 px-4 py-8 text-center text-sm text-gray-500">
-                      {t('admin.queue.empty')}
+                  {items.length === 0 && (
+                    <div className="flex h-full items-center justify-center p-6 text-center">
+                      <div className="rounded-3xl border border-dashed border-white/10 p-8 w-full">
+                        <Icon className="h-8 w-8 text-white/10 mx-auto mb-3" />
+                        <p className="text-xs text-gray-500 font-medium">No vehicles {column.replace('_', ' ')}</p>
+                      </div>
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </section>
             );
@@ -322,115 +339,81 @@ export default function Queue() {
         </div>
       )}
 
-      {/* Modal Adicionar Veículo à Fila */}
+      {/* Add Vehicle Modal */}
       <AnimatePresence>
         {isAddOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md overflow-y-auto"
-          >
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-md overflow-y-auto">
             <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/20 bg-darker p-8 shadow-[0_0_60px_rgba(0,0,0,0.8)] my-8"
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
+              className="relative w-full max-w-lg overflow-hidden rounded-[2rem] border border-white/[0.05] bg-[#0A0A0A] p-8 shadow-2xl my-8"
             >
               <button
-                type="button"
                 onClick={() => setIsAddOpen(false)}
-                className="absolute right-6 top-6 flex h-10 w-10 items-center justify-center rounded-full bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+                className="absolute right-6 top-6 flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.05] text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
               >
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </button>
 
-              <div className="mb-6 border-b border-white/10 pb-5">
-                <span className="inline-block rounded-full bg-primary/20 border border-primary/30 px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary mb-2">
-                  Entrada Rápida de Balcão
-                </span>
-                <h3 className="text-2xl font-bold font-display text-white tracking-tight">
-                  Adicionar Veículo à Fila
+              <div className="mb-8">
+                <h3 className="text-2xl font-bold font-display text-white tracking-tight mb-2">
+                  Add to Queue
                 </h3>
-                <p className="text-sm text-gray-400 mt-1">
-                  Cadastre o cliente e o serviço avulso. O veículo será inserido instantaneamente no quadro de Espera.
+                <p className="text-sm text-gray-500">
+                  Quickly insert a vehicle into the waiting queue.
                 </p>
               </div>
 
-              <form onSubmit={(e) => void handleCreateVehicle(e)} className="space-y-4">
+              <form onSubmit={handleCreateVehicle} className="space-y-5">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-                    Nome do Cliente / Motorista *
-                  </label>
+                  <label className="block text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">Client / Driver Name</label>
                   <input
-                    type="text"
-                    required
-                    value={newContact}
-                    onChange={(e) => setNewContact(e.target.value)}
-                    placeholder="Ex: João Silva"
-                    className="w-full rounded-xl border border-white/10 bg-dark py-3 px-4 text-sm font-semibold text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    type="text" required value={newContact} onChange={(e) => setNewContact(e.target.value)}
+                    placeholder="E.g. João Silva"
+                    className="w-full rounded-xl border border-white/[0.05] bg-[#141414] py-3 px-4 text-sm text-white focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-                      Matrícula (Placa) *
-                    </label>
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">Plate Number</label>
                     <input
-                      type="text"
-                      required
-                      value={newPlate}
-                      onChange={(e) => setNewPlate(e.target.value.toUpperCase())}
-                      placeholder="Ex: MMX-9281"
-                      className="w-full rounded-xl border border-white/10 bg-dark py-3 px-4 text-sm font-bold uppercase tracking-wider text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                      type="text" required value={newPlate} onChange={(e) => setNewPlate(e.target.value.toUpperCase())}
+                      placeholder="MMX-9281"
+                      className="w-full rounded-xl border border-white/[0.05] bg-[#141414] py-3 px-4 text-sm font-bold uppercase tracking-widest text-white focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 font-mono transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-                      Marca do Veículo
-                    </label>
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">Make</label>
                     <input
-                      type="text"
-                      value={newMake}
-                      onChange={(e) => setNewMake(e.target.value)}
-                      placeholder="Ex: Toyota"
-                      className="w-full rounded-xl border border-white/10 bg-dark py-3 px-4 text-sm font-semibold text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      type="text" value={newMake} onChange={(e) => setNewMake(e.target.value)}
+                      placeholder="Toyota"
+                      className="w-full rounded-xl border border-white/[0.05] bg-[#141414] py-3 px-4 text-sm text-white focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-                      Modelo do Veículo
-                    </label>
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">Model</label>
                     <input
-                      type="text"
-                      value={newModel}
-                      onChange={(e) => setNewModel(e.target.value)}
-                      placeholder="Ex: Hilux"
-                      className="w-full rounded-xl border border-white/10 bg-dark py-3 px-4 text-sm font-semibold text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      type="text" value={newModel} onChange={(e) => setNewModel(e.target.value)}
+                      placeholder="Hilux"
+                      className="w-full rounded-xl border border-white/[0.05] bg-[#141414] py-3 px-4 text-sm text-white focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-                      Preço Cobrado (MT)
-                    </label>
+                    <label className="block text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">Price (MT)</label>
                     <input
-                      type="text"
-                      value={newPrice}
-                      onChange={(e) => setNewPrice(e.target.value)}
-                      placeholder="Ex: 850.00"
-                      className="w-full rounded-xl border border-white/10 bg-dark py-3 px-4 text-sm font-bold text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                      type="text" value={newPrice} onChange={(e) => setNewPrice(e.target.value)}
+                      className="w-full rounded-xl border border-white/[0.05] bg-[#141414] py-3 px-4 text-sm font-bold text-white focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 font-mono transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-300 mb-1.5">
-                    Serviço a Realizar
-                  </label>
+                  <label className="block text-[11px] font-bold uppercase tracking-widest text-gray-500 mb-2">Service</label>
                   <select
                     value={newService}
                     onChange={(e) => {
@@ -441,7 +424,7 @@ export default function Queue() {
                       else if (val.includes('VIP')) setNewPrice('1500.00');
                       else if (val.includes('Motor')) setNewPrice('1200.00');
                     }}
-                    className="w-full rounded-xl border border-white/10 bg-dark py-3 px-4 text-sm font-semibold text-white focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full rounded-xl border border-white/[0.05] bg-[#141414] py-3 px-4 text-sm text-white focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20 transition-all appearance-none"
                   >
                     <option value="Lavagem Simples">Lavagem Simples (500 MT)</option>
                     <option value="Lavagem Completa VIP">Lavagem Completa VIP (850 MT)</option>
@@ -451,30 +434,26 @@ export default function Queue() {
                   </select>
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-white/10 flex items-center justify-end gap-4">
+                <div className="mt-8 pt-6 flex items-center justify-end gap-3">
                   <button
                     type="button"
                     onClick={() => setIsAddOpen(false)}
-                    className="rounded-xl border border-white/20 px-6 py-3 text-sm font-bold text-white hover:bg-white/10 transition-colors"
+                    className="rounded-xl px-5 py-2.5 text-sm font-bold text-gray-400 hover:text-white hover:bg-white/[0.05] transition-colors"
                   >
-                    Cancelar
+                    Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={addingVehicle}
-                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-blue-600 px-8 py-3 text-sm font-bold text-white hover:shadow-[0_0_30px_rgba(0,102,255,0.5)] transition-all font-display shadow-lg disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-sm font-bold text-white hover:bg-primary-hover shadow-lg disabled:opacity-50 transition-all active:scale-95"
                   >
-                    {addingVehicle ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-white" />
-                    ) : (
-                      <Car className="h-5 w-5 text-white/80" />
-                    )}
-                    <span>{addingVehicle ? 'A inserir...' : 'Confirmar e Inserir na Fila'}</span>
+                    {addingVehicle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                    <span>Add to Queue</span>
                   </button>
                 </div>
               </form>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

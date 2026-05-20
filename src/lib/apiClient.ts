@@ -1,5 +1,5 @@
 const apiEndpoint = import.meta.env.VITE_APP_API_ENDPOINT || '/api/index.php';
-const apiTimeoutMs = 20000;
+const apiTimeoutMs = 4000;
 
 type ApiEnvelope<T> = {
   success: boolean;
@@ -623,6 +623,8 @@ function addAuditLog(module: string, action: string, entity_type: string, entity
   saveLocalData('doctor46_mock_audit_logs', logs);
 }
 
+export let isOfflineModeActive = false;
+
 // ----------------------------------------------------
 // CORE API INTERCEPTOR
 // ----------------------------------------------------
@@ -768,6 +770,7 @@ export async function apiRequest<T>(action: string, body?: unknown): Promise<T> 
   // ROBUST LOCAL STORAGE RELATIONAL DATABASE LAYER (WHEN LIVE API FAILS)
   // ====================================================================
   if (!response?.ok || !payload?.success || fetchError) {
+    isOfflineModeActive = true;
     
     // --- 1. DOCUMENTS ---
     if (action === 'admin.documents.list') {
@@ -1312,5 +1315,6 @@ export async function apiRequest<T>(action: string, body?: unknown): Promise<T> 
     throw new Error(payload?.message || 'Nao foi possivel comunicar com a API MySQL.');
   }
 
+  isOfflineModeActive = false;
   return payload.data;
 }
